@@ -6,14 +6,14 @@ export const systemTools = [
     description: 'Returns the current server date, time, day of week, and timezone. Call this whenever you need to resolve relative dates like "today", "tomorrow", "next Tuesday", or compute remaining time.',
     isWriteAction: false,
     schema: z.object({
-      timezone: z.string().optional().describe('Optional timezone identifier, e.g. "Asia/Kolkata", "America/New_York", or "UTC"'),
+      timezone: z.string().nullable().optional().describe('Optional timezone identifier, e.g. "Asia/Kolkata", "America/New_York", or "UTC"'),
     }),
     parameters: {
       type: 'object',
       properties: {
         timezone: {
-          type: 'string',
-          description: 'Optional timezone identifier (e.g., "UTC", "America/New_York", "Asia/Kolkata"). Defaults to local system time.',
+          type: ['string', 'null'],
+          description: 'Optional timezone identifier (e.g., "UTC", "America/New_York", "Asia/Kolkata") or null for local system time.',
         },
       },
       required: [],

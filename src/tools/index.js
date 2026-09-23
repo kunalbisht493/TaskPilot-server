@@ -37,11 +37,25 @@ class ToolRegistry {
    * Formats tool definitions for the Google Gemini API (FunctionDeclaration[])
    */
   getGeminiFunctionDeclarations() {
-    return this.getAllTools().map((t) => ({
-      name: t.name,
-      description: t.description,
-      parameters: t.parameters,
-    }));
+    return this.getAllTools().map((t) => {
+      // Clone parameters to avoid mutating original
+      const params = JSON.parse(JSON.stringify(t.parameters || { type: 'object', properties: {} }));
+      if (params.properties) {
+        for (const key of Object.keys(params.properties)) {
+          const prop = params.properties[key];
+          if (Array.isArray(prop.type)) {
+            // Pick the non-null type for Gemini and mark nullable
+            prop.type = prop.type.find((tp) => tp !== 'null') || 'string';
+            prop.nullable = true;
+          }
+        }
+      }
+      return {
+        name: t.name,
+        description: t.description,
+        parameters: params,
+      };
+    });
   }
 
   /**

@@ -23,6 +23,7 @@ This document tracks every key technical and architectural decision made for the
 - [ADR-015: Database Schema Design — Distinct Mongoose Models for Agent Lifecycle](#adr-015-database-schema-design--distinct-mongoose-models-for-agent-lifecycle)
 - [ADR-016: Groq Model Selection — openai/gpt-oss-120b](#adr-016-groq-model-selection--openaigpt-oss-120b)
 - [ADR-017: Version Control Strategy — Strict .gitignore Rules for Credential Protection](#adr-017-version-control-strategy--strict-gitignore-rules-for-credential-protection)
+- [ADR-018: Tool Parameter Nullability & Multi-Provider Schema Normalization](#adr-018-tool-parameter-nullability--multi-provider-schema-normalization)
 
 ---
 
@@ -504,6 +505,35 @@ This document tracks every key technical and architectural decision made for the
   - *Minimal `.gitignore`:* Misses nested environment variations (`.env.local`), OAuth JSON exports (`credentials.json`), and OS metadata.
   - *Committing `.env`:* Highly dangerous; developers inevitably overwrite dummy values with real production keys and commit them.
   - *No `.gitignore`:* Guarantees accidental leakage of credentials and massive repository bloat.
+
+---
+
+## ADR-018: Tool Parameter Nullability & Multi-Provider Schema Normalization
+
+- **Status:** Accepted
+- **Date:** 2026-09-23
+- **Context:**
+  When executing tool calls, open-weight LLMs like `openai/gpt-oss-120b` frequently output `null` for optional parameters (e.g. `{"timezone": null}`). Groq's server-side tool validator strictly verifies incoming tool parameters and returns a `400 Invalid Request` (`expected string, but got null`) if the schema only specifies `type: "string"`. Conversely, Google Gemini's schema parser expects flat single-type strings with a `nullable: true` attribute rather than union arrays (`type: ["string", "null"]`).
+
+- **Decision:**
+  1. Define optional tool parameters with union types (`type: ['string', 'null']`) and `z.string().nullable().optional()` in the core tool definitions.
+  2. Implement schema normalization inside `getGeminiFunctionDeclarations()` so that array union types are cleanly converted to single types with `nullable: true` when communicating with Gemini, while preserving native array types for Groq.
+
+- **Why Taken:**
+  1. **Zero Validation Errors:** Allows LLMs to pass explicit `null` values without triggering `400 tool_use_failed` errors from Groq's validator.
+  2. **Multi-Provider Robustness:** Keeps tool declarations compatible with both Groq (OpenAI schema specification) and Google Gemini (OpenAPI subset specification).
+  3. **Natural Fallback Handling:** Tool handlers can safely evaluate `args.param || fallback` where `null` evaluates to false and falls back to system defaults.
+
+- **Alternatives Considered:**
+  1. *Prompt Engineering to Forbid `null`:* Adding negative instructions like "Never output null; omit the key entirely."
+  2. *Removing Optional Parameters:* Hardcoding defaults in tools and stripping parameters from schemas.
+  3. *Post-Processing / Intercepting Groq's Tool Call:* Not possible because Groq's API server validates the tool call before returning the response to our backend.
+
+- **Why Alternatives Were Not Taken:**
+  - *Prompt Engineering:* Models frequently ignore negative constraints when generating structured JSON schemas under rapid token generation.
+  - *Removing Parameters:* Sacrifices capability (e.g., users cannot ask for the time in a specific timezone like "Asia/Kolkata" or "America/New_York").
+  - *Post-Processing:* The validation error occurs on Groq's infrastructure before our server even receives the response.
+
 
 
 
