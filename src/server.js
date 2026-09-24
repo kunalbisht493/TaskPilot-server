@@ -8,6 +8,7 @@ import { initializeSocket } from './sockets/socketGateway.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import healthRoutes from './routes/healthRoutes.js';
 import agentRoutes from './routes/agentRoutes.js';
+import authRoutes from './routes/authRoutes.js';
 
 const app = express();
 const server = http.createServer(app);
@@ -29,6 +30,7 @@ initializeSocket(server);
 
 // API Routes
 app.use('/api', healthRoutes);
+app.use('/api/auth', authRoutes);
 app.use('/api/agent', agentRoutes);
 
 // Welcome Root Route
@@ -38,6 +40,13 @@ app.get('/', (req, res) => {
     description: 'Autonomous MERN-based AI Agent with Hand-Built ReAct Loop',
     endpoints: {
       health: '/api/health',
+      auth: {
+        google: '/api/auth/google',
+        callback: '/api/auth/google/callback',
+        me: '/api/auth/me',
+        logout: 'POST /api/auth/logout',
+        devLogin: 'POST /api/auth/dev-login',
+      },
       tools: '/api/tools',
       task: 'POST /api/agent/task',
     },

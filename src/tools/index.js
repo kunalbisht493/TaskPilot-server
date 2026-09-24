@@ -1,10 +1,15 @@
 import { systemTools } from './systemTools.js';
+import { calendarTools } from './calendarTools.js';
 
 class ToolRegistry {
   constructor() {
     this.tools = new Map();
-    // Register initial system verification tools
+    // Register system verification tools
     for (const tool of systemTools) {
+      this.registerTool(tool);
+    }
+    // Register Google Calendar tools
+    for (const tool of calendarTools) {
       this.registerTool(tool);
     }
   }

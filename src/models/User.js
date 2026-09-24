@@ -22,6 +22,9 @@ const userSchema = new mongoose.Schema(
       type: String,
       sparse: true,
     },
+    avatar: {
+      type: String,
+    },
     googleTokens: {
       accessToken: String,
       refreshToken: String,

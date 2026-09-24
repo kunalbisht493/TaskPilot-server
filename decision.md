@@ -24,6 +24,7 @@ This document tracks every key technical and architectural decision made for the
 - [ADR-016: Groq Model Selection — openai/gpt-oss-120b](#adr-016-groq-model-selection--openaigpt-oss-120b)
 - [ADR-017: Version Control Strategy — Strict .gitignore Rules for Credential Protection](#adr-017-version-control-strategy--strict-gitignore-rules-for-credential-protection)
 - [ADR-018: Tool Parameter Nullability & Multi-Provider Schema Normalization](#adr-018-tool-parameter-nullability--multi-provider-schema-normalization)
+- [ADR-019: Google OAuth 2.0 Token Lifecycle & Read-Only Calendar Tool Architecture](#adr-019-google-oauth-20-token-lifecycle--read-only-calendar-tool-architecture)
 
 ---
 
@@ -533,6 +534,37 @@ This document tracks every key technical and architectural decision made for the
   - *Prompt Engineering:* Models frequently ignore negative constraints when generating structured JSON schemas under rapid token generation.
   - *Removing Parameters:* Sacrifices capability (e.g., users cannot ask for the time in a specific timezone like "Asia/Kolkata" or "America/New_York").
   - *Post-Processing:* The validation error occurs on Groq's infrastructure before our server even receives the response.
+
+---
+
+## ADR-019: Google OAuth 2.0 Token Lifecycle & Read-Only Calendar Tool Architecture
+
+- **Status:** Accepted
+- **Date:** 2026-09-24
+- **Context:**
+  TaskPilot requires access to the user's Google Calendar to check availability and schedule meetings. The agent needs to query calendar events on behalf of the user, handle token refreshes transparently, enforce safety classifications between read and write actions, and gracefully guide the user when unauthenticated without throwing unhandled exceptions.
+
+- **Decision:**
+  1. **Token Storage & Automatic Refresh:** Store Google OAuth access and refresh tokens directly on the `User` Mongoose document. Instantiate `google.auth.OAuth2` client dynamically per request, attaching an `on('tokens')` listener to persist refreshed access tokens back to MongoDB automatically.
+  2. **Read-Only Tool Classification:** Register `check_calendar_availability` as an idempotent read action (`isWriteAction: false`), allowing the ReAct loop to query calendar events autonomously without interrupting the user with confirmation prompts.
+  3. **Graceful Degradation for Unauthenticated Invocations:** If an unauthenticated user or an account without linked Google credentials executes a calendar query, the tool returns a clean, structured observation (`{ connected: false, message: "..." }`) rather than throwing a fatal error. This allows the LLM's ReAct cycle to observe the missing connection and politely instruct the user to authenticate via `/api/auth/google`.
+  4. **Multi-Provider Schema Nullability:** Apply ADR-018 schema rules so optional parameters (`endDate`, `timeZone`) use union types (`type: ['string', 'null']`) for Groq while mapping to single types with `nullable: true` for Gemini.
+
+- **Why Taken:**
+  1. **Zero Session Friction:** Automatic token refresh ensures the agent never fails mid-reasoning due to expired Google access tokens (which expire after 1 hour).
+  2. **Frictionless Read Workflows:** Checking availability is purely informational and has no real-world side effects; requiring approval for read operations would degrade the user experience.
+  3. **Self-Healing Agent Behavior:** Returning informative tool observations allows the LLM to explain auth prerequisites naturally in conversational English rather than failing with internal server error codes.
+
+- **Alternatives Considered:**
+  1. *Requiring Human Confirmation on Read Actions:* Prompting the user with an "Approve/Reject" modal before checking calendar availability.
+  2. *Storing Tokens in Redis:* Managing OAuth tokens in an external Redis cache.
+  3. *Static Hardcoded Mock Calendar Data Only:* Never connecting real Google Calendar APIs.
+
+- **Why Alternatives Were Not Taken:**
+  - *Confirmation on Read Actions:* Creates high user fatigue and contradicts standard agent design patterns (only write/mutating actions require HITL approval).
+  - *Redis Token Store:* Introduces unnecessary infrastructure complexity for a single-user portfolio assistant.
+  - *Mock Calendar Only:* Fails to prove real third-party OAuth token management, which is a major resume-differentiating capability.
+
 
 
 
