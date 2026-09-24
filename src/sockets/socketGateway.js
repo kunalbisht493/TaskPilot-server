@@ -44,3 +44,19 @@ export function emitReasoningStep(conversationId, stepData) {
   ioInstance.to(conversationId).emit('agent:step', stepData);
   ioInstance.emit('agent:global_step', { conversationId, ...stepData });
 }
+
+export function emitConfirmationRequired(conversationId, confirmationData) {
+  if (!ioInstance) return;
+  ioInstance.to(conversationId).emit('agent:confirm_request', confirmationData);
+  ioInstance.emit('agent:global_confirm_request', { conversationId, ...confirmationData });
+}
+
+export function emitAgentComplete(conversationId, completionData) {
+  if (!ioInstance) return;
+  ioInstance.to(conversationId).emit('agent:complete', completionData);
+}
+
+export function emitAgentError(conversationId, errorData) {
+  if (!ioInstance) return;
+  ioInstance.to(conversationId).emit('agent:error', errorData);
+}

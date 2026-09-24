@@ -102,4 +102,72 @@ export const calendarService = {
       };
     }
   },
+
+  /**
+   * Creates a new calendar event on the user's primary Google Calendar
+   * 
+   * @param {Object} params
+   * @param {Object} params.user - User document containing googleTokens
+   * @param {string} params.summary - Event title/summary
+   * @param {string} params.startTime - Start date or ISO timestamp
+   * @param {string} params.endTime - End date or ISO timestamp
+   * @param {string} [params.description] - Description or agenda
+   * @param {string} [params.timeZone] - Timezone string
+   * @param {Array<string>} [params.attendees] - Array of attendee emails
+   */
+  async createEvent({ user, summary, startTime, endTime, description = '', timeZone, attendees = [] }) {
+    if (!user || (!user.googleTokens?.accessToken && !user.googleTokens?.refreshToken)) {
+      return {
+        success: false,
+        error: 'Google Calendar is not connected. User must sign in via Google OAuth to create events.',
+      };
+    }
+
+    try {
+      const auth = await getAuthenticatedClientForUser(user);
+      const calendar = google.calendar({ version: 'v3', auth });
+
+      const startIso = new Date(startTime).toISOString();
+      const endIso = new Date(endTime).toISOString();
+
+      const requestBody = {
+        summary,
+        description: description || '',
+        start: {
+          dateTime: startIso,
+          ...(timeZone ? { timeZone } : {}),
+        },
+        end: {
+          dateTime: endIso,
+          ...(timeZone ? { timeZone } : {}),
+        },
+      };
+
+      if (Array.isArray(attendees) && attendees.length > 0) {
+        requestBody.attendees = attendees.filter(Boolean).map((email) => ({ email }));
+      }
+
+      const response = await calendar.events.insert({
+        calendarId: 'primary',
+        requestBody,
+      });
+
+      const created = response.data;
+      return {
+        success: true,
+        eventId: created.id,
+        htmlLink: created.htmlLink,
+        summary: created.summary,
+        start: created.start.dateTime || created.start.date,
+        end: created.end.dateTime || created.end.date,
+        status: created.status,
+      };
+    } catch (err) {
+      console.error('[CalendarService] Error creating calendar event:', err.message);
+      return {
+        success: false,
+        error: `Google Calendar API error: ${err.message}`,
+      };
+    }
+  },
 };

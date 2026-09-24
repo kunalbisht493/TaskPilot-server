@@ -114,7 +114,9 @@ export class ReActOrchestrator {
         messages.push({
           role: 'assistant',
           content: plan.reasoning,
+          toolCallId: plan.toolCallId,
           toolCall: {
+            id: plan.toolCallId,
             name: plan.name,
             args: plan.args,
           },
@@ -158,6 +160,7 @@ export class ReActOrchestrator {
 
           messages.push({
             role: 'tool',
+            toolCallId: plan.toolCallId,
             name: plan.name,
             content: `Error: ${toolExecution.error}`,
             isError: true,
@@ -171,10 +174,16 @@ export class ReActOrchestrator {
             result: toolExecution.result,
           });
 
+          const formattedResult =
+            typeof toolExecution.result === 'object'
+              ? JSON.stringify(toolExecution.result)
+              : String(toolExecution.result);
+
           messages.push({
             role: 'tool',
+            toolCallId: plan.toolCallId,
             name: plan.name,
-            content: toolExecution.result,
+            content: formattedResult,
           });
         }
       }

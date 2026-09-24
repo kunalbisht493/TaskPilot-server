@@ -48,7 +48,11 @@ app.get('/', (req, res) => {
         devLogin: 'POST /api/auth/dev-login',
       },
       tools: '/api/tools',
-      task: 'POST /api/agent/task',
+      agent: {
+        task: 'POST /api/agent/task',
+        confirm: 'POST /api/agent/confirm',
+        pendingConfirmations: 'GET /api/agent/confirmations/pending',
+      },
     },
     version: '1.0.0',
   });

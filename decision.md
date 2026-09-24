@@ -25,6 +25,7 @@ This document tracks every key technical and architectural decision made for the
 - [ADR-017: Version Control Strategy — Strict .gitignore Rules for Credential Protection](#adr-017-version-control-strategy--strict-gitignore-rules-for-credential-protection)
 - [ADR-018: Tool Parameter Nullability & Multi-Provider Schema Normalization](#adr-018-tool-parameter-nullability--multi-provider-schema-normalization)
 - [ADR-019: Google OAuth 2.0 Token Lifecycle & Read-Only Calendar Tool Architecture](#adr-019-google-oauth-20-token-lifecycle--read-only-calendar-tool-architecture)
+- [ADR-020: Human-in-the-Loop Confirmation State Machine & Write Action Resumption](#adr-020-human-in-the-loop-confirmation-state-machine--write-action-resumption)
 
 ---
 
@@ -564,6 +565,40 @@ This document tracks every key technical and architectural decision made for the
   - *Confirmation on Read Actions:* Creates high user fatigue and contradicts standard agent design patterns (only write/mutating actions require HITL approval).
   - *Redis Token Store:* Introduces unnecessary infrastructure complexity for a single-user portfolio assistant.
   - *Mock Calendar Only:* Fails to prove real third-party OAuth token management, which is a major resume-differentiating capability.
+
+---
+
+## ADR-020: Human-in-the-Loop Confirmation State Machine & Write Action Resumption
+
+- **Status:** Accepted
+- **Date:** 2026-09-24
+- **Context:**
+  When executing write actions like `create_calendar_event` or `create_task`, the agent must not modify external state without explicit user consent (ADR-003). We need a robust state machine that pauses the ReAct loop, persists the pending confirmation record across server reboots, notifies the client UI in real time via Socket.io, accepts approval or rejection via REST (`POST /api/agent/confirm`), and cleanly resumes the ReAct reasoning loop.
+
+- **Decision:**
+  1. **Intercept at Tool Registry Level:** In `ToolRegistry.validateAndExecute()`, any tool designated with `isWriteAction: true` checks `context.isConfirmed`. If false, execution is immediately intercepted and returns `{ needsConfirmation: true, tool, args, description }` without invoking the mutating function.
+  2. **Clean Orchestrator Pause:** The ReAct loop halts its execution loop, emits a `confirmation_required` event, and returns `{ status: 'awaiting_confirmation', pendingAction, messages, step }`.
+  3. **State Persistence in MongoDB:** `confirmationService.createPendingConfirmation()` saves a `PendingConfirmation` document with a unique `confirmationId` (`conf_<timestamp>_<random>`), records the intermediate conversation state (`status: 'awaiting_confirmation'`, `stepsCount`), and emits `agent:confirm_request` over Socket.io.
+  4. **Bifurcated Resumption Logic:**
+     - *On Rejection (`approved: false`):* Update `PendingConfirmation` status to `'rejected'`, log the rejection in `ActionLog` (`confirmedByUser: false`), inject a cancellation observation into the conversation messages (`role: 'tool'`), and resume the ReAct loop so the LLM gracefully acknowledges the cancellation.
+     - *On Approval (`approved: true`):* Update `PendingConfirmation` status to `'approved'`, execute the tool with `{ isConfirmed: true }`, record the success in `ActionLog` (`confirmedByUser: true`), inject the tool output into conversation messages, and resume the ReAct loop so the LLM receives the tool observation and generates its final answer.
+  5. **Exact Tool Call ID Preservation:** Persist `toolCallId` across both assistant messages and tool observations to ensure strict tool-call pairing compatibility with Groq/OpenAI APIs.
+
+- **Why Taken:**
+  1. **Absolute Safety Guarantee:** External side-effects are physically impossible without an explicit `isConfirmed: true` flag passed to the tool handler.
+  2. **Zero Context Loss:** Resuming with full conversation history allows the LLM to understand whether its requested write action succeeded or was vetoed, enabling adaptive follow-up responses.
+  3. **High Architectural Signal:** Demonstrates stateful asynchronous workflow orchestration, interruptible agent loops, and dual-transport (HTTP + WebSockets) synchronization.
+
+- **Alternatives Considered:**
+  1. *Blocking HTTP Request (Holding connection open until user approves):* Keeping the original `POST /api/agent/task` request hanging for minutes.
+  2. *Frontend-Only Simulation:* Performing confirmation entirely on the client before calling the backend.
+  3. *Unsupervised Execution with Auto-Cancel Window:* Executing immediately and waiting 10 seconds for user to click "Cancel".
+
+- **Why Alternatives Were Not Taken:**
+  - *Blocking HTTP Request:* Fragile; gateway timeouts (e.g. Render 30s timeout, browser timeouts) disconnect the client and drop state.
+  - *Frontend Simulation:* Easily bypassed, insecure, and eliminates backend agent autonomy.
+  - *Auto-Cancel Window:* External mutations (e.g. sending calendar invitations) cannot be undone cleanly after being dispatched.
+
 
 
 
