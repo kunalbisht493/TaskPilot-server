@@ -135,22 +135,32 @@ class LLMAdapter {
 
     const groqMessages = [
       ...(systemInstruction ? [{ role: 'system', content: systemInstruction }] : []),
-      ...messages.map((m) => {
+      ...messages.map((m, idx) => {
         if (m.role === 'tool') {
+          let toolCallId = m.toolCallId;
+          if (!toolCallId) {
+            for (let i = idx - 1; i >= 0; i--) {
+              if (messages[i].role === 'assistant' && (messages[i].toolCallId || messages[i].toolCall?.id)) {
+                toolCallId = messages[i].toolCallId || messages[i].toolCall.id;
+                break;
+              }
+            }
+          }
           return {
             role: 'tool',
-            tool_call_id: m.toolCallId || `call_${m.name}`,
+            tool_call_id: toolCallId || `call_${m.name}`,
             name: m.name,
             content: typeof m.content === 'string' ? m.content : JSON.stringify(m.content),
           };
         }
         if (m.role === 'assistant' && m.toolCall) {
+          const callId = m.toolCall.id || m.toolCallId || `call_${m.toolCall.name}`;
           return {
             role: 'assistant',
             content: m.content || null,
             tool_calls: [
               {
-                id: m.toolCallId || `call_${m.toolCall.name}`,
+                id: callId,
                 type: 'function',
                 function: {
                   name: m.toolCall.name,
