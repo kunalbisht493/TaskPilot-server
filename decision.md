@@ -27,6 +27,7 @@ This document tracks every key technical and architectural decision made for the
 - [ADR-019: Google OAuth 2.0 Token Lifecycle & Read-Only Calendar Tool Architecture](#adr-019-google-oauth-20-token-lifecycle--read-only-calendar-tool-architecture)
 - [ADR-020: Human-in-the-Loop Confirmation State Machine & Write Action Resumption](#adr-020-human-in-the-loop-confirmation-state-machine--write-action-resumption)
 - [ADR-021: Internal Task Tooling & Dual-Domain Guardrail Parity](#adr-021-internal-task-tooling--dual-domain-guardrail-parity)
+- [ADR-022: Audit Trail Querying & Real-Time Action Stream Architecture](#adr-022-audit-trail-querying--real-time-action-stream-architecture)
 
 ---
 
@@ -629,6 +630,37 @@ This document tracks every key technical and architectural decision made for the
   - *Autonomous Task Creation:* Inconsistent safety model; hallucinated task creations would clutter user task lists without recourse.
   - *Strict ID-Only Completion:* Degrades usability and causes LLM failures when users say "complete the report task" without citing an ID.
   - *In-Memory Tasks:* Lost on server restart and incompatible with production deployments.
+
+---
+
+## ADR-022: Audit Trail Querying & Real-Time Action Stream Architecture
+
+- **Status:** Accepted
+- **Date:** 2026-09-25
+- **Context:**
+  For transparency, system debugging, and portfolio credibility, every tool invocation by the agent must be recorded immutably in MongoDB (`actionLogs`), queried efficiently by the client UI with pagination and filtering, aggregated for dashboard metrics, and broadcasted live via Socket.io as actions execute.
+
+- **Decision:**
+  1. **Dual Transport Observability:** When an action executes, the `auditLogger` persists the record to the `ActionLog` collection and immediately broadcasts the payload via Socket.io (`audit:new_log` globally and `audit:conversation_log` to the session room), allowing frontend dashboard tables to update live without polling.
+  2. **Paginated REST API:** Implement `GET /api/audit-logs` supporting `page`, `limit`, and filtering by `tool` or `conversationId`, returning standard metadata (`total`, `page`, `limit`, `totalPages`, `logs`).
+  3. **High-Level Metric Aggregation:** Expose `GET /api/audit-logs/stats` computing total actions, success counts, confirmed vs unconfirmed distribution, and a per-tool breakdown with average execution latencies (`avgExecutionMs`).
+  4. **Multi-Tier Fault Tolerance:** In non-connected or test environments, maintain an in-memory buffer ensuring logging and retrieval remain functional without crashing unit tests or offline simulations.
+
+- **Why Taken:**
+  1. **Production-Ready Observability:** Demonstrates how production agent platforms (e.g. LangSmith, Arize Phoenix) log agent provenance, but implemented from scratch using native MongoDB aggregations.
+  2. **Zero Polling Overhead:** Real-time WebSocket broadcasts eliminate the need for the frontend to periodically poll for new audit log rows.
+  3. **High Architectural Interview Signal:** Proves mastery over MongoDB index queries, aggregation pipelines (`$group`, `$cond`), and reactive dual-transport synchronization.
+
+- **Alternatives Considered:**
+  1. *File-Based Logging Only:* Writing JSON lines to `.log` files.
+  2. *Client-Side Logging:* Relying on the frontend React state to record actions.
+  3. *Third-Party SaaS (Datadog/Loggly):* Shipping logs to external cloud logging vendors.
+
+- **Why Alternatives Were Not Taken:**
+  - *File Logs:* Ephemeral on cloud containers like Render; difficult to query from a browser client.
+  - *Client-Side Logging:* Insecure, lost on tab refresh, and cannot capture actions initiated by asynchronous workflows.
+  - *Third-Party SaaS:* Adds unnecessary API keys, configuration hurdles, and potential vendor billing.
+
 
 
 

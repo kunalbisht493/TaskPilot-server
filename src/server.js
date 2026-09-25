@@ -10,6 +10,7 @@ import healthRoutes from './routes/healthRoutes.js';
 import agentRoutes from './routes/agentRoutes.js';
 import authRoutes from './routes/authRoutes.js';
 import taskRoutes from './routes/taskRoutes.js';
+import auditRoutes from './routes/auditRoutes.js';
 
 const app = express();
 const server = http.createServer(app);
@@ -34,6 +35,7 @@ app.use('/api', healthRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/agent', agentRoutes);
 app.use('/api/tasks', taskRoutes);
+app.use('/api/audit-logs', auditRoutes);
 
 // Welcome Root Route
 app.get('/', (req, res) => {
@@ -50,6 +52,10 @@ app.get('/', (req, res) => {
         devLogin: 'POST /api/auth/dev-login',
       },
       tasks: '/api/tasks',
+      auditLogs: {
+        list: '/api/audit-logs',
+        stats: '/api/audit-logs/stats',
+      },
       tools: '/api/tools',
       agent: {
         task: 'POST /api/agent/task',

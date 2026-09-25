@@ -10,7 +10,8 @@
     "test:react": "node src/scripts/testReActLoop.js",
     "test:phase2": "node src/scripts/testPhase2AuthAndCalendar.js",
     "test:phase3": "node src/scripts/testPhase3WriteAndConfirmation.js",
-    "test:phase4": "node src/scripts/testPhase4TaskTools.js"
+    "test:phase4": "node src/scripts/testPhase4TaskTools.js",
+    "test:phase5": "node src/scripts/testPhase5AuditAndSockets.js"
   },
   "keywords": [
     "ai-agent",

@@ -60,3 +60,11 @@ export function emitAgentError(conversationId, errorData) {
   if (!ioInstance) return;
   ioInstance.to(conversationId).emit('agent:error', errorData);
 }
+
+export function emitAuditLog(logData) {
+  if (!ioInstance) return;
+  ioInstance.emit('audit:new_log', logData);
+  if (logData.conversationId) {
+    ioInstance.to(logData.conversationId).emit('audit:conversation_log', logData);
+  }
+}
