@@ -728,6 +728,25 @@ This document tracks every key technical and architectural decision made for the
   1. **Visual Authenticity:** Mirrors the visual design standards of leading developer tools (Linear, Datadog, GitHub Actions).
   2. **Clear Cognitive Hierarchy:** Distinguishes the primary execution stream from ambient data management without visual noise.
 
+---
+
+## ADR-026: White/Light Surface Theme & Navigation Telemetry Streamlining
+
+- **Status:** Accepted
+- **Date:** 2026-09-25
+- **Context:**
+  Following user evaluation, the client theme was updated to a crisp, high-contrast white and neutral light design system reminiscent of top-tier developer tooling (Stripe, Linear, Notion), eliminating dark-mode template tells. Additionally, the LLM provider telemetry widget was removed from the header navigation bar to eliminate superfluous chrome.
+
+- **Decision:**
+  1. **White Surface Hierarchy:** Established `#ffffff` as the core canvas, `#f9fafb` for secondary operational panes, `#e5e7eb` for borders, and `#0f172a` for high-contrast typography.
+  2. **Header Telemetry Streamlining:** Removed the explicit LLM provider telemetry display (`Provider: GROQ`), preserving essential WebSocket status indicators and session controls.
+  3. **Monochromatic Action Restraint:** Maintained solid charcoal (`#0f172a`) as the singular accent for primary trigger buttons.
+
+- **Why Taken:**
+  1. **Professional Contrast:** Maximizes legibility and presents a modern, deliberate product appearance.
+  2. **Reduced Cognitive Load:** Removes redundant technical tags from the primary user flow.
+
+
 
 
 
