@@ -708,6 +708,27 @@ This document tracks every key technical and architectural decision made for the
   1. **Non-Disruptive Port Flexibility:** Supports running multiple frontend development instances without CORS policy violations.
   2. **Production-Grade Credibility:** Moves the interface from an AI demo aesthetic to a polished, professional tool designed for high-stakes task automation.
 
+---
+
+## ADR-025: De-Homogenized Two-Pane Architecture, Execution Trace Timeline & Single-Accent Discipline
+
+- **Status:** Accepted
+- **Date:** 2026-09-25
+- **Context:**
+  Feedback on early client screens revealed that uniform border treatments and recurring card components created an artificial, templated "AI dashboard" impression. The user required eliminating repetitive 1px bordered boxes and multi-button blue highlights in favor of an authentic developer tool hierarchy with structural tonal separation, a timeline trace feed, and strict single-accent restraint.
+
+- **Decision:**
+  1. **Split-Pane Tonal Canvas:** Eliminated nested floating boxes in favor of a cohesive two-pane layout: a deep graphite execution canvas (`#111215`) for the ReAct trace and a subtle contrast pane (`#16181c`) for the operational checklist and audit ledger, separated by hairline guide lines rather than card borders.
+  2. **Single Primary Accent Restraint:** Confined the primary action accent (`#2563eb`) exclusively to the primary trigger ("Run goal"). All secondary buttons, tabs, and status badges use neutral zinc/slate tones.
+  3. **Timeline Execution Spine:** Refactored the Reasoning Feed into an activity trace with continuous vertical guide lines, cycle node markers, command-style tool execution blocks (`$ call tool_name`), and indented thought streams.
+  4. **Operational Checklist & Semantic Ledger:** Formatted the Task Panel as an authentic checklist with hairline row dividers and the Audit Log as a compact data table with column headers.
+  5. **Specific Operational Empty States:** Replaced generic filler text with clear functional readiness summaries explaining data persistence and live streaming behavior.
+
+- **Why Taken:**
+  1. **Visual Authenticity:** Mirrors the visual design standards of leading developer tools (Linear, Datadog, GitHub Actions).
+  2. **Clear Cognitive Hierarchy:** Distinguishes the primary execution stream from ambient data management without visual noise.
+
+
 
 
 
