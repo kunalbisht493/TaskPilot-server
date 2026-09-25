@@ -9,6 +9,7 @@ import { errorHandler } from './middleware/errorHandler.js';
 import healthRoutes from './routes/healthRoutes.js';
 import agentRoutes from './routes/agentRoutes.js';
 import authRoutes from './routes/authRoutes.js';
+import taskRoutes from './routes/taskRoutes.js';
 
 const app = express();
 const server = http.createServer(app);
@@ -32,6 +33,7 @@ initializeSocket(server);
 app.use('/api', healthRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/agent', agentRoutes);
+app.use('/api/tasks', taskRoutes);
 
 // Welcome Root Route
 app.get('/', (req, res) => {
@@ -47,6 +49,7 @@ app.get('/', (req, res) => {
         logout: 'POST /api/auth/logout',
         devLogin: 'POST /api/auth/dev-login',
       },
+      tasks: '/api/tasks',
       tools: '/api/tools',
       agent: {
         task: 'POST /api/agent/task',

@@ -26,6 +26,7 @@ This document tracks every key technical and architectural decision made for the
 - [ADR-018: Tool Parameter Nullability & Multi-Provider Schema Normalization](#adr-018-tool-parameter-nullability--multi-provider-schema-normalization)
 - [ADR-019: Google OAuth 2.0 Token Lifecycle & Read-Only Calendar Tool Architecture](#adr-019-google-oauth-20-token-lifecycle--read-only-calendar-tool-architecture)
 - [ADR-020: Human-in-the-Loop Confirmation State Machine & Write Action Resumption](#adr-020-human-in-the-loop-confirmation-state-machine--write-action-resumption)
+- [ADR-021: Internal Task Tooling & Dual-Domain Guardrail Parity](#adr-021-internal-task-tooling--dual-domain-guardrail-parity)
 
 ---
 
@@ -598,6 +599,37 @@ This document tracks every key technical and architectural decision made for the
   - *Blocking HTTP Request:* Fragile; gateway timeouts (e.g. Render 30s timeout, browser timeouts) disconnect the client and drop state.
   - *Frontend Simulation:* Easily bypassed, insecure, and eliminates backend agent autonomy.
   - *Auto-Cancel Window:* External mutations (e.g. sending calendar invitations) cannot be undone cleanly after being dispatched.
+
+---
+
+## ADR-021: Internal Task Tooling & Dual-Domain Guardrail Parity
+
+- **Status:** Accepted
+- **Date:** 2026-09-25
+- **Context:**
+  With Google Calendar integrated as the external domain (Phase 2 & 3), TaskPilot requires the internal domain: to-do task management (`create_task`, `complete_task`, `list_tasks`). The assistant must manage tasks stored in MongoDB, enforce the same Confirm-Before-Write safety guardrails across internal database mutations as it does for external calendar events, and support multi-tool workflows (e.g., calendar scheduling paired with task creation).
+
+- **Decision:**
+  1. **Dual Action Classification:** Classify `create_task` and `complete_task` as write actions (`isWriteAction: true`), ensuring any mutation to the user's task list undergoes human approval via `PendingConfirmation` and Socket.io events. Classify `list_tasks` as an idempotent read action (`isWriteAction: false`) that executes immediately without pause.
+  2. **Flexible Task Resolution:** Support completion by either explicit MongoDB `taskId` or natural-language `title` search (using case-insensitive regex on pending tasks), allowing the agent to resolve tasks colloquially (e.g. "complete the deployment task").
+  3. **Multi-Domain Composition:** Allow the ReAct orchestrator to seamlessly chain tools across domains: querying calendar availability, creating an event with confirmation, observing the result, and creating a follow-up to-do task with a second confirmation.
+  4. **Direct REST API Parity:** Expose `/api/tasks` endpoints (`GET`, `POST`, `PATCH /:id/complete`, `DELETE /:id`) so the frontend client can render and directly manage task lists in addition to agent-driven actions.
+
+- **Why Taken:**
+  1. **Consistent Security Posture:** Applying the same HITL confirmation pattern to internal database mutations proves that guardrails are not an afterthought retrofitted only for third-party APIs, but a fundamental architectural principle.
+  2. **Deliberate 2-Tool Completeness:** Fulfills ADR-004's promise of completing both an external tool domain (Google Calendar) and an internal database tool domain with zero unfinished stubs.
+  3. **Natural User Experience:** Flexible title-based task completion accommodates how humans actually speak to AI assistants without forcing users to remember or copy MongoDB ObjectIds.
+
+- **Alternatives Considered:**
+  1. *Allowing Autonomous Task Creation Without Confirmation:* Treating internal tasks as "low risk" and bypassing confirmation.
+  2. *Strict ID-Only Task Completion:* Requiring the LLM to know the 24-character hexadecimal MongoDB ID before completing a task.
+  3. *In-Memory Task Store:* Storing tasks in a volatile JavaScript array instead of MongoDB.
+
+- **Why Alternatives Were Not Taken:**
+  - *Autonomous Task Creation:* Inconsistent safety model; hallucinated task creations would clutter user task lists without recourse.
+  - *Strict ID-Only Completion:* Degrades usability and causes LLM failures when users say "complete the report task" without citing an ID.
+  - *In-Memory Tasks:* Lost on server restart and incompatible with production deployments.
+
 
 
 

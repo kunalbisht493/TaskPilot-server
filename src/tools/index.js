@@ -1,5 +1,6 @@
 import { systemTools } from './systemTools.js';
 import { calendarTools } from './calendarTools.js';
+import { taskTools } from './taskTools.js';
 
 class ToolRegistry {
   constructor() {
@@ -10,6 +11,10 @@ class ToolRegistry {
     }
     // Register Google Calendar tools
     for (const tool of calendarTools) {
+      this.registerTool(tool);
+    }
+    // Register internal task tools
+    for (const tool of taskTools) {
       this.registerTool(tool);
     }
   }
