@@ -37,5 +37,13 @@
   },
   "devDependencies": {
     "nodemon": "^3.1.9"
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kunalbisht493/TaskPilot-server.git"
+  },
+  "bugs": {
+    "url": "https://github.com/kunalbisht493/TaskPilot-server/issues"
+  },
+  "homepage": "https://github.com/kunalbisht493/TaskPilot-server#readme"
 }
