@@ -661,6 +661,36 @@ This document tracks every key technical and architectural decision made for the
   - *Client-Side Logging:* Insecure, lost on tab refresh, and cannot capture actions initiated by asynchronous workflows.
   - *Third-Party SaaS:* Adds unnecessary API keys, configuration hurdles, and potential vendor billing.
 
+---
+
+## ADR-023: Client Architecture, Real-Time ReAct Stream & HITL UI Components
+
+- **Status:** Accepted
+- **Date:** 2026-09-25
+- **Context:**
+  Following completion of the 5 backend phases, TaskPilot requires a modern, production-grade frontend client as defined in `architecture.md` (Section 4.1). The UI must provide real-time visibility into the hand-built ReAct reasoning loop, render human-in-the-loop (HITL) approval modals for write-action guardrails, manage database tasks, and display the immutable audit trail with live WebSocket updates.
+
+- **Decision:**
+  1. **Standalone Vercel-Ready Architecture:** Scaffolded the client in `TaskPilot-client` using Vite, React 19, Tailwind CSS v3, and Lucide Icons. Configured `vite.config.js` to run on Port 5173 to align with backend CORS origin policies.
+  2. **Dual-Transport Session Synchronization:**
+     - REST API client (`src/api/client.js`) with automatic `credentials: 'include'` for HttpOnly JWT session persistence.
+     - WebSocket client (`src/context/SocketContext.jsx`) linking to Port 5001 with room-based isolation (`join_conversation`), listening to `agent:step`, `agent:confirm_request`, `agent:complete`, and `audit:new_log`.
+  3. **Visual ReAct Stream Decomposition:** Built `ReasoningFeed.jsx` to render each step sequentially as:
+     - 🧠 **REASON:** LLM thought process and sub-goal formulation.
+     - ⚡ **ACT:** Structured tool execution request with formatted JSON arguments and guardrail badges.
+     - 👁️ **OBSERVE:** Real tool output with status and data inspection.
+  4. **HITL Write-Action Interception Modal:** Implemented `ConfirmationModal.jsx` to intercept write actions (`create_calendar_event`, `create_task`, `complete_task`), displaying parameter previews (event start/end times, task titles) and binding directly to `POST /api/agent/confirm`.
+  5. **Direct Task & Audit Panels:** Embedded dual-tab workspace:
+     - `TaskPanel.jsx`: Direct CRUD management of MongoDB tasks with completion toggles.
+     - `AuditLogPanel.jsx`: Metrics dashboard (success rate, confirmation counts, latency) with real-time row injection via Socket.io.
+  6. **Local Developer Velocity:** Implemented one-click Dev Login (`POST /api/auth/dev-login`) alongside Google OAuth connect flows, enabling zero-friction end-to-end testing without mandatory external OAuth setup.
+
+- **Why Taken:**
+  1. **Faithful Architectural Realization:** Fulfills Section 4.1 and Section 5 of `architecture.md` without omission.
+  2. **High Portfolio Signal:** Replaces simple chat interfaces with a rich agentic dashboard highlighting internal loop mechanics and safety guardrails.
+  3. **Zero Compilation Friction:** Optimized bundle build with Vite and Tailwind v3 with verified production build passing in under 16 seconds.
+
+
 
 
 
