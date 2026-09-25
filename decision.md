@@ -690,6 +690,25 @@ This document tracks every key technical and architectural decision made for the
   2. **High Portfolio Signal:** Replaces simple chat interfaces with a rich agentic dashboard highlighting internal loop mechanics and safety guardrails.
   3. **Zero Compilation Friction:** Optimized bundle build with Vite and Tailwind v3 with verified production build passing in under 16 seconds.
 
+---
+
+## ADR-024: Port 5174 Client Migration, Dual-Port CORS Whitelisting & Frontend Design Hardening
+
+- **Status:** Accepted
+- **Date:** 2026-09-25
+- **Context:**
+  The frontend client development server was migrated to Port 5174. The backend server and WebSocket gateway must support this port concurrently with existing development endpoints, and the frontend client design must be hardened against generic template aesthetic anti-patterns while enforcing strict client-side security policies (input length bounds, zero raw token display, and sanitized JSX rendering).
+
+- **Decision:**
+  1. **Multi-Port CORS Whitelisting:** Updated both Express middleware and the Socket.io gateway to whitelist `http://localhost:5174` and `http://localhost:5173` alongside the environment-configured `CLIENT_URL`.
+  2. **Client Design System Hardening:** Removed all ambient glow effects, neon color accents, and decorative gradient washes, standardizing on a neutral dark slate palette (`#0a0f1d`, `#0f172a`, `#161f30`) and singular slate-blue accent (`#2563eb`).
+  3. **Client-Side Defense-in-Depth:** Enforced a 500-character boundary on the goal prompt textarea with real-time length tracking, disabled concurrent submissions during active loop execution, and guaranteed zero `dangerouslySetInnerHTML` usage across all streaming components.
+
+- **Why Taken:**
+  1. **Non-Disruptive Port Flexibility:** Supports running multiple frontend development instances without CORS policy violations.
+  2. **Production-Grade Credibility:** Moves the interface from an AI demo aesthetic to a polished, professional tool designed for high-stakes task automation.
+
+
 
 
 

@@ -6,7 +6,7 @@ let ioInstance = null;
 export function initializeSocket(httpServer) {
   ioInstance = new Server(httpServer, {
     cors: {
-      origin: [config.clientUrl, 'http://localhost:5173', 'http://localhost:3000'],
+      origin: [config.clientUrl, 'http://localhost:5174', 'http://localhost:5173', 'http://localhost:3000'],
       methods: ['GET', 'POST'],
       credentials: true,
     },
