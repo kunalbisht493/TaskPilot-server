@@ -746,6 +746,24 @@ This document tracks every key technical and architectural decision made for the
   1. **Professional Contrast:** Maximizes legibility and presents a modern, deliberate product appearance.
   2. **Reduced Cognitive Load:** Removes redundant technical tags from the primary user flow.
 
+---
+
+## ADR-027: Dynamic Loopback Origin Validation & Proxy-Friendly Session Architecture
+
+- **Status:** Accepted
+- **Date:** 2026-09-25
+- **Context:**
+  When testing the frontend locally across different browser host aliases (`localhost` vs `127.0.0.1` vs local subnet IP `192.168.x.x`), static CORS origin arrays caused preflight rejection on authentication calls. Furthermore, strict browser third-party cookie policies blocked cross-port cookie persistence during `devLogin`.
+
+- **Decision:**
+  1. **Dynamic Origin Matching:** Upgraded Express CORS and Socket.io gateway to utilize dynamic regex matching supporting any loopback or LAN origin (`http://localhost:*`, `http://127.0.0.1:*`, `http://192.168.*:*`) with `credentials: true`.
+  2. **Vite Development Proxy Support:** Aligned server endpoint paths with client-side Vite proxying (`/api` and `/socket.io`), permitting same-origin first-party cookie dispatching.
+  3. **Dual-Contract Session Verification:** Ensured authentication controllers and client-side hooks harmonize `{ authenticated: true }` and `{ success: true }` response payloads without drop-offs.
+
+- **Why Taken:**
+  Ensures zero-friction local developer authentication across all browsers, host aliases, and network configurations while preserving strict production security standards.
+
+
 
 
 

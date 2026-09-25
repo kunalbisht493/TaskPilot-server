@@ -3,10 +3,26 @@ import { config } from '../config/env.js';
 
 let ioInstance = null;
 
+const isAllowedOrigin = (origin) => {
+  if (!origin) return true;
+  if (
+    origin === config.clientUrl ||
+    /^http:\/\/(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|\[::1\])(:\d+)?$/.test(origin)
+  ) {
+    return true;
+  }
+  return false;
+};
+
 export function initializeSocket(httpServer) {
   ioInstance = new Server(httpServer, {
     cors: {
-      origin: [config.clientUrl, 'http://localhost:5174', 'http://localhost:5173', 'http://localhost:3000'],
+      origin: (origin, callback) => {
+        if (isAllowedOrigin(origin)) {
+          return callback(null, true);
+        }
+        return callback(new Error(`Origin ${origin} not allowed by CORS`));
+      },
       methods: ['GET', 'POST'],
       credentials: true,
     },

@@ -15,10 +15,26 @@ import auditRoutes from './routes/auditRoutes.js';
 const app = express();
 const server = http.createServer(app);
 
-// CORS configuration
+// CORS configuration: dynamically allow localhost, 127.0.0.1, clientUrl, and local LAN IPs
+const isAllowedOrigin = (origin) => {
+  if (!origin) return true;
+  if (
+    origin === config.clientUrl ||
+    /^http:\/\/(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|\[::1\])(:\d+)?$/.test(origin)
+  ) {
+    return true;
+  }
+  return false;
+};
+
 app.use(
   cors({
-    origin: [config.clientUrl, 'http://localhost:5174', 'http://localhost:5173', 'http://localhost:3000'],
+    origin: (origin, callback) => {
+      if (isAllowedOrigin(origin)) {
+        return callback(null, true);
+      }
+      return callback(new Error(`Origin ${origin} not allowed by CORS`));
+    },
     credentials: true,
   })
 );
