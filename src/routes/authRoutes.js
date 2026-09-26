@@ -18,6 +18,27 @@ const getCookieOptions = () => ({
 });
 
 /**
+ * Safely resolves the target frontend redirect URL from request or OAuth state.
+ * Restricts redirection to localhost / 127.0.0.1 or configured clientUrl to prevent open redirects.
+ */
+const getSafeRedirectUrl = (rawTarget) => {
+  if (!rawTarget) return config.clientUrl;
+  try {
+    const parsed = new URL(rawTarget);
+    if (
+      parsed.hostname === 'localhost' ||
+      parsed.hostname === '127.0.0.1' ||
+      parsed.origin === new URL(config.clientUrl).origin
+    ) {
+      return parsed.origin;
+    }
+  } catch (_) {
+    // Malformed URL, fall back to configured clientUrl
+  }
+  return config.clientUrl;
+};
+
+/**
  * GET /api/auth/google
  * Initiates the Google OAuth 2.0 flow
  */
@@ -29,7 +50,20 @@ router.get('/google', (req, res) => {
     });
   }
 
-  const state = req.query.state || '';
+  // Derive return origin from query, referer header, or configured clientUrl
+  let returnTo = req.query.returnTo;
+  if (!returnTo && req.headers.referer) {
+    try {
+      returnTo = new URL(req.headers.referer).origin;
+    } catch (_) {}
+  }
+  const safeReturnTo = getSafeRedirectUrl(returnTo);
+
+  const statePayload = JSON.stringify({
+    returnTo: safeReturnTo,
+    custom: req.query.state || '',
+  });
+  const state = Buffer.from(statePayload).toString('base64url');
   const authUrl = getAuthUrl(state);
 
   if (req.query.json === 'true') {
@@ -44,11 +78,23 @@ router.get('/google', (req, res) => {
  * Handles OAuth callback from Google, persists user, sets JWT cookie, and redirects to client
  */
 router.get('/google/callback', async (req, res, next) => {
+  let targetOrigin = config.clientUrl;
+  if (req.query.state) {
+    try {
+      const decoded = JSON.parse(Buffer.from(req.query.state, 'base64url').toString('utf8'));
+      if (decoded.returnTo) {
+        targetOrigin = getSafeRedirectUrl(decoded.returnTo);
+      }
+    } catch (_) {
+      // In case state was not encoded json
+    }
+  }
+
   try {
     const { code, error } = req.query;
 
     if (error) {
-      return res.redirect(`${config.clientUrl}?auth_error=${encodeURIComponent(error)}`);
+      return res.redirect(`${targetOrigin}?auth_error=${encodeURIComponent(error)}`);
     }
 
     if (!code) {
@@ -105,10 +151,10 @@ router.get('/google/callback', async (req, res, next) => {
     res.cookie('token', token, getCookieOptions());
 
     // Redirect back to frontend
-    res.redirect(`${config.clientUrl}?auth=success`);
+    res.redirect(`${targetOrigin}?auth=success`);
   } catch (err) {
     console.error('[GoogleAuth] Callback error:', err);
-    res.redirect(`${config.clientUrl}?auth_error=${encodeURIComponent(err.message)}`);
+    res.redirect(`${targetOrigin}?auth_error=${encodeURIComponent(err.message)}`);
   }
 });
 

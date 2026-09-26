@@ -763,6 +763,27 @@ This document tracks every key technical and architectural decision made for the
 - **Why Taken:**
   Ensures zero-friction local developer authentication across all browsers, host aliases, and network configurations while preserving strict production security standards.
 
+---
+
+## ADR-028: Dynamic OAuth ReturnTo State Parameter & Port 5174 Client Session Synchronization
+
+- **Status:** Accepted
+- **Date:** 2026-09-26
+- **Context:**
+  When executing Google OAuth 2.0 authentication from the frontend running on Port 5174, the OAuth callback from Google redirected the browser back to a hardcoded Port 5173 URL (`http://localhost:5173/?auth=success`). The server required dynamic preservation of the initiating client origin across the OAuth consent roundtrip, safe destination validation against open redirects, default fallback update to Port 5174, and client-side query parameter synchronization.
+
+- **Decision:**
+  1. **OAuth State Origin Serialization:** Updated `GET /api/auth/google` to extract `returnTo` from query parameters or the HTTP `Referer` header and serialize it into a base64url JSON payload passed as the Google OAuth `state` parameter.
+  2. **Safe Origin Validation:** Implemented `getSafeRedirectUrl()` in `authRoutes.js` validating that any decoded `returnTo` URL belongs to loopback addresses (`localhost`, `127.0.0.1`) or matches the configured `clientUrl` before performing the 302 redirect on callback.
+  3. **Port 5174 Fallback Alignment:** Updated `config.clientUrl` default fallback in `src/config/env.js` and `.env` from `5173` to `5174`.
+  4. **Client-Side Query Param & Session Sync:** Updated `App.jsx` in the frontend client to inspect URL query parameters on mount, trigger immediate `refreshUser()` on `?auth=success`, display an informative confirmation banner, and clean the address bar using `window.history.replaceState`.
+
+- **Why Taken:**
+  1. Eliminates broken redirects to inactive ports when running the frontend client on non-standard or dynamically allocated development ports.
+  2. Protects against open-redirect security vulnerabilities by strictly whitelisting allowed destination origins.
+  3. Provides a clean, modern user experience by stripping transient OAuth status parameters from the browser address bar upon session restoration.
+
+
 
 
 
