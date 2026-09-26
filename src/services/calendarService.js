@@ -1,5 +1,6 @@
 import { google } from 'googleapis';
 import { getAuthenticatedClientForUser } from './googleAuthService.js';
+import { config } from '../config/env.js';
 
 /**
  * Service to interface with Google Calendar API (v3)
@@ -95,10 +96,23 @@ export const calendarService = {
       };
     } catch (err) {
       console.error('[CalendarService] Error querying availability:', err.message);
+      const isApiDisabled =
+        err.message?.includes('has not been used in project') ||
+        err.message?.includes('it is disabled') ||
+        err.message?.includes('Google Calendar API has not been used');
+      const projectId = config.google.clientId ? config.google.clientId.split('-')[0] : '210931415970';
+      const enableUrl = `https://console.developers.google.com/apis/api/calendar-json.googleapis.com/overview?project=${projectId}`;
+
       return {
         isConnected: true,
-        error: `Google Calendar API error: ${err.message}`,
-        message: 'Failed to fetch calendar availability from Google.',
+        error: isApiDisabled
+          ? `Google Calendar API has not been enabled for project ${projectId}. Enable it by visiting ${enableUrl}`
+          : `Google Calendar API error: ${err.message}`,
+        message: isApiDisabled
+          ? 'Google Calendar API is disabled in your Google Cloud Project. Please enable it in the Google Cloud Console.'
+          : 'Failed to fetch calendar availability from Google.',
+        actionRequired: isApiDisabled ? 'ENABLE_GOOGLE_CALENDAR_API' : undefined,
+        enableUrl: isApiDisabled ? enableUrl : undefined,
       };
     }
   },
@@ -164,9 +178,23 @@ export const calendarService = {
       };
     } catch (err) {
       console.error('[CalendarService] Error creating calendar event:', err.message);
+      const isApiDisabled =
+        err.message?.includes('has not been used in project') ||
+        err.message?.includes('it is disabled') ||
+        err.message?.includes('Google Calendar API has not been used');
+      const projectId = config.google.clientId ? config.google.clientId.split('-')[0] : '210931415970';
+      const enableUrl = `https://console.developers.google.com/apis/api/calendar-json.googleapis.com/overview?project=${projectId}`;
+
       return {
         success: false,
-        error: `Google Calendar API error: ${err.message}`,
+        error: isApiDisabled
+          ? `Google Calendar API has not been enabled for project ${projectId}. Enable it by visiting ${enableUrl}`
+          : `Google Calendar API error: ${err.message}`,
+        message: isApiDisabled
+          ? 'Google Calendar API is disabled in your Google Cloud Project. Please enable it in the Google Cloud Console.'
+          : 'Failed to create calendar event.',
+        actionRequired: isApiDisabled ? 'ENABLE_GOOGLE_CALENDAR_API' : undefined,
+        enableUrl: isApiDisabled ? enableUrl : undefined,
       };
     }
   },
