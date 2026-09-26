@@ -783,6 +783,25 @@ This document tracks every key technical and architectural decision made for the
   2. Protects against open-redirect security vulnerabilities by strictly whitelisting allowed destination origins.
   3. Provides a clean, modern user experience by stripping transient OAuth status parameters from the browser address bar upon session restoration.
 
+---
+
+## ADR-029: Google Cloud Calendar API Diagnostic Telemetry & Port Conflict Resolution
+
+- **Status:** Accepted
+- **Date:** 2026-09-26
+- **Context:**
+  When invoking calendar tools (`check_calendar_availability` or `create_calendar_event`) under newly created Google Cloud OAuth credentials, Google returns a 403 API disabled error if the Google Calendar API has not been explicitly activated in the developer console. Additionally, concurrent execution of server instances across duplicate project directories (`server` and `TaskPilot-server`) caused `EADDRINUSE: address already in use :::5001` crashes under nodemon.
+
+- **Decision:**
+  1. **Actionable API Enablement Telemetry:** Upgraded `calendarService.js` error handling in both availability checks and event creation to recognize Google's API enablement error pattern, automatically extract the active Google Cloud project ID from configuration, and return a direct Google Cloud Console URL (`https://console.developers.google.com/apis/api/calendar-json.googleapis.com/overview?project=<id>`) alongside an `actionRequired: 'ENABLE_GOOGLE_CALENDAR_API'` flag.
+  2. **Multi-Directory Git Synchronization:** Fast-forwarded and synchronized all codebase updates, environment variables (`CLIENT_URL=http://localhost:5174`), and ADR records from `server` to `TaskPilot-server`.
+  3. **Port 5001 Process Deconfliction:** Released lingering background server processes to allow user-managed nodemon instances to bind to Port 5001 without socket collisions.
+
+- **Why Taken:**
+  1. Eliminates confusion during developer onboarding by providing immediate, one-click links to enable Google Calendar in Google Cloud Console.
+  2. Prevents port collision crashes between development tools and daemon processes.
+
+
 
 
 
