@@ -30,6 +30,7 @@ export const taskService = {
       const createdTask = await Task.create(taskData);
       return {
         id: createdTask._id.toString(),
+        _id: createdTask._id.toString(),
         title: createdTask.title,
         description: createdTask.description,
         status: createdTask.status,
@@ -39,8 +40,10 @@ export const taskService = {
       };
     } else {
       // Memory fallback for offline test environments
+      const mockId = `mock_task_${Date.now()}`;
       return {
-        id: `mock_task_${Date.now()}`,
+        id: mockId,
+        _id: mockId,
         ...taskData,
         dueDate: taskData.dueDate ? taskData.dueDate.toISOString() : null,
         createdAt: new Date().toISOString(),
@@ -66,7 +69,9 @@ export const taskService = {
 
       if (taskId && mongoose.isValidObjectId(taskId)) {
         const query = { _id: taskId };
-        if (userId) query.userId = userId;
+        if (userId) {
+          query.$or = [{ userId }, { userId: null }];
+        }
         task = await Task.findOne(query);
       }
 
@@ -75,7 +80,9 @@ export const taskService = {
           title: new RegExp(title.trim(), 'i'),
           status: { $ne: 'completed' },
         };
-        if (userId) query.userId = userId;
+        if (userId) {
+          query.$or = [{ userId }, { userId: null }];
+        }
         task = await Task.findOne(query);
       }
 
@@ -91,14 +98,17 @@ export const taskService = {
 
       return {
         id: task._id.toString(),
+        _id: task._id.toString(),
         title: task.title,
         status: task.status,
         completedAt: task.completedAt.toISOString(),
       };
     } else {
       // Offline mock fallback
+      const mockId = taskId || `mock_task_${Date.now()}`;
       return {
-        id: taskId || `mock_task_${Date.now()}`,
+        id: mockId,
+        _id: mockId,
         title: title || 'Mock Task',
         status: 'completed',
         completedAt: new Date().toISOString(),
@@ -116,12 +126,15 @@ export const taskService = {
   async listTasks({ userId, status = 'all' }) {
     if (mongoose.connection.readyState === 1) {
       const query = {};
-      if (userId) query.userId = userId;
+      if (userId) {
+        query.$or = [{ userId }, { userId: null }];
+      }
       if (status && status !== 'all') query.status = status;
 
       const tasks = await Task.find(query).sort({ createdAt: -1 }).limit(50);
       return tasks.map((t) => ({
         id: t._id.toString(),
+        _id: t._id.toString(),
         title: t.title,
         description: t.description,
         status: t.status,
