@@ -38,4 +38,13 @@ const taskSchema = new mongoose.Schema(
   }
 );
 
+// TTL index: automatically remove completed tasks 30 days after completion (30 * 24 * 60 * 60 seconds)
+taskSchema.index(
+  { completedAt: 1 },
+  { 
+    expireAfterSeconds: 30 * 24 * 60 * 60,
+    partialFilterExpression: { status: 'completed' } 
+  }
+);
+
 export const Task = mongoose.model('Task', taskSchema);

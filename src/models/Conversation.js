@@ -57,4 +57,7 @@ const conversationSchema = new mongoose.Schema(
   }
 );
 
+// TTL index: automatically delete conversations after 14 days of last activity (updatedAt)
+conversationSchema.index({ updatedAt: 1 }, { expireAfterSeconds: 14 * 24 * 60 * 60 });
+
 export const Conversation = mongoose.model('Conversation', conversationSchema);

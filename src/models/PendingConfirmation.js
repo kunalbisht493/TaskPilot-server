@@ -43,4 +43,7 @@ const pendingConfirmationSchema = new mongoose.Schema(
   }
 );
 
+// TTL index: automatically delete confirmation records after 14 days
+pendingConfirmationSchema.index({ createdAt: 1 }, { expireAfterSeconds: 14 * 24 * 60 * 60 });
+
 export const PendingConfirmation = mongoose.model('PendingConfirmation', pendingConfirmationSchema);

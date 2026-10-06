@@ -38,12 +38,14 @@ const actionLogSchema = new mongoose.Schema(
     timestamp: {
       type: Date,
       default: Date.now,
-      index: true,
     },
   },
   {
     timestamps: false,
   }
 );
+
+// TTL index: automatically delete audit logs after 14 days (14 * 24 * 60 * 60 seconds)
+actionLogSchema.index({ timestamp: 1 }, { expireAfterSeconds: 14 * 24 * 60 * 60 });
 
 export const ActionLog = mongoose.model('ActionLog', actionLogSchema);
