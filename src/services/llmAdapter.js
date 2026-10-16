@@ -3,6 +3,15 @@ import Groq from 'groq-sdk';
 import { config } from '../config/env.js';
 import { toolRegistry } from '../tools/index.js';
 
+function sanitizeResponse(text) {
+  if (!text || typeof text !== 'string') return text || '';
+  // Clean up any degenerate stuttering loops (e.g. repeated ellipses or dashes)
+  return text
+    .replace(/([.…]+\s*){3,}/g, '... ')
+    .replace(/([‑\-–—]\s*){3,}/g, '- ')
+    .trim();
+}
+
 class LLMAdapter {
   constructor() {
     this.geminiClient = null;
@@ -54,13 +63,17 @@ class LLMAdapter {
       this.geminiClient = new GoogleGenerativeAI(config.gemini.apiKey);
     }
 
-    const modelName = config.gemini.model || 'gemini-1.5-flash';
+    const modelName = config.gemini.model || 'gemini-3.8-flash';
     const functionDeclarations = toolRegistry.getGeminiFunctionDeclarations();
 
     const model = this.geminiClient.getGenerativeModel({
       model: modelName,
       systemInstruction,
       tools: [{ functionDeclarations }],
+      generationConfig: {
+        temperature: 0.2,
+        maxOutputTokens: 1024,
+      },
     });
 
     // Format conversation history for Gemini contents
@@ -117,7 +130,7 @@ class LLMAdapter {
 
     return {
       type: 'final_answer',
-      content: response.text(),
+      content: sanitizeResponse(response.text()),
       provider: 'gemini',
     };
   }
@@ -130,7 +143,7 @@ class LLMAdapter {
       this.groqClient = new Groq({ apiKey: config.groq.apiKey });
     }
 
-    const modelName = config.groq.model || 'llama-3.3-70b-versatile';
+    const modelName = config.groq.model || 'openai/gpt-oss-120b';
     const tools = toolRegistry.getGroqToolDeclarations();
 
     const groqMessages = [
@@ -182,6 +195,8 @@ class LLMAdapter {
       messages: groqMessages,
       tools: tools.length > 0 ? tools : undefined,
       tool_choice: 'auto',
+      temperature: 0.2,
+      max_tokens: 1024,
     });
 
     const choice = response.choices[0];
@@ -208,7 +223,7 @@ class LLMAdapter {
 
     return {
       type: 'final_answer',
-      content: message.content || '',
+      content: sanitizeResponse(message.content || ''),
       provider: 'groq',
     };
   }
