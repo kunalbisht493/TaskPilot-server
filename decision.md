@@ -800,19 +800,55 @@ This document tracks every key technical and architectural decision made for the
 - **Why Taken:**
   1. Eliminates confusion during developer onboarding by providing immediate, one-click links to enable Google Calendar in Google Cloud Console.
   2. Prevents port collision crashes between development tools and daemon processes.
+---
 
+## ADR-030: LLM Adapter Stabilization & Repetition Loop Sanitization for Open-Source Weights
 
+- **Status:** Accepted
+- **Date:** 2026-10-27
+- **Context:**
+  When executing goals where all requested tasks were already completed, high-temperature sampling (`temperature: 1.0`) on open-source weights (`openai/gpt-oss-120b` via Groq) occasionally entered stochastic degeneration loops, producing hundreds of repetitive punctuation tokens (`... ... ... Sorry ...`).
 
+- **Decision:**
+  1. **Sampling Parameter Tuning:** Reduced default sampling temperature in `llmAdapter.js` to `0.2` and capped `max_tokens` to `1024` to enforce focused, deterministic completions.
+  2. **Response Sanitization Layer:** Introduced `sanitizeResponse()` in `llmAdapter.js` to detect and strip repetitive token sequences before forwarding LLM outputs to the ReAct orchestrator.
+  3. **Orchestrator Terminal Guard:** Ensured the orchestrator terminates gracefully when tasks are already in the requested state instead of re-evaluating loops.
 
+- **Why Taken:**
+  Eliminates token wastage, prevents UI hanging from infinite repetition loops, and ensures deterministic agent responses.
 
+---
 
+## ADR-031: 14-Day Audit Log TTL & 30-Day Completed Task Auto-Expiration Strategy
 
+- **Status:** Accepted
+- **Date:** 2026-10-27
+- **Context:**
+  High-frequency tool executions and audit logging could cause unbounded MongoDB storage growth over time. The system needed automated data expiration policies that balance auditability with storage sustainability.
 
+- **Decision:**
+  1. **14-Day Audit Log Retention:** Added a MongoDB TTL index on `AuditLog.timestamp` with `expireAfterSeconds: 14 * 86400` (1,209,600 seconds) to automatically purge audit entries older than 14 days.
+  2. **Complete Log Detail Persistence:** Maintained comprehensive audit payloads (tool names, arguments, user confirmation flags, conversation IDs, and execution results) within the 14-day window for debugging and review.
+  3. **30-Day Completed Task Expiration:** Added a sparse MongoDB TTL index on `Task.completedAt` with `expireAfterSeconds: 30 * 86400` (2,592,000 seconds). Active/pending tasks remain indefinitely; only completed tasks are automatically cleaned up after 30 days.
 
+- **Why Taken:**
+  Provides automated, zero-maintenance database hygiene, guarantees compliance with data retention principles, and prevents database volume saturation.
 
+---
 
+## ADR-032: Indian Date Parsing Architecture (DD-MM-YYYY, Short & Full Month Forms, Current Year Inference)
 
+- **Status:** Accepted
+- **Date:** 2026-10-27
+- **Context:**
+  Standard JavaScript `new Date()` returns `Invalid Date` for Indian numeric formats (`DD-MM-YYYY`, `DD/MM/YYYY`) and erroneously defaults inputs without a year (e.g. `23 oct`, `23 october`) to year `2001`. The backend needed robust parsing across all tools (`create_task`, `check_calendar_availability`, `create_calendar_event`) and prompt instructions.
 
+- **Decision:**
+  1. **Shared Date Utility (`src/utils/dateUtils.js`):** Created `parseIndianDate(input, defaultYear)` supporting `DD-MM-YYYY`, `DD/MM/YYYY`, `DD-MM-YY`, and month-name strings (`23 oct`, `23 october`, `23 Oct 2026`, `23 October 2026`) with optional time, explicitly defaulting missing years to the current year (`2026`).
+  2. **Service Layer Normalization:** Updated `taskService.createTask` and `calendarService.js` (`listEvents`, `createEvent`) to parse incoming user and agent date strings through `parseIndianDate` before generating ISO timestamps.
+  3. **Tool Parameter Schemas:** Updated Zod and JSON Schema definitions in `taskTools.js` and `calendarTools.js` to explicitly document Indian date formats.
+  4. **Time & System Tools (`systemTools.js`):** Updated `get_current_time` to use `Asia/Kolkata` as default timezone, returning `indianDateFormat` (`DD-MM-YYYY`) and `indianTextFormat` (`23 Oct 2026`).
+  5. **Orchestrator Prompting (`prompts.js`):** Enforced Indian date conventions in `REACT_SYSTEM_INSTRUCTION` so the agent reasons and answers using Day-first formats.
 
-
-
+- **Why Taken:**
+  Prevents invalid date exceptions, eliminates the year 2001 default bug, and ensures seamless alignment between Indian user inputs and backend calendar/task services.
