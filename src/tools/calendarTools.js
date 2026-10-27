@@ -12,7 +12,7 @@ export const calendarTools = [
         .string()
         .min(1)
         .describe(
-          'Start date or ISO timestamp (e.g. "2026-09-24" or "2026-09-24T10:00:00Z") to begin checking calendar availability.'
+          'Start date, Indian format date (e.g. "23-10-2026", "23 oct", "23 October 2026"), or ISO timestamp (e.g. "2026-10-23T10:00:00Z") to begin checking calendar availability.'
         ),
       endDate: z
         .string()
@@ -35,7 +35,7 @@ export const calendarTools = [
         startDate: {
           type: 'string',
           description:
-            'Start date or ISO timestamp (e.g. "2026-09-24" or "2026-09-24T09:00:00Z") to begin checking calendar availability.',
+            'Start date, Indian format date (e.g. "23-10-2026", "23 oct", "23 October 2026"), or ISO timestamp to begin checking calendar availability.',
         },
         endDate: {
           type: ['string', 'null'],

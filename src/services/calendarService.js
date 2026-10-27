@@ -1,6 +1,7 @@
 import { google } from 'googleapis';
 import { getAuthenticatedClientForUser } from './googleAuthService.js';
 import { config } from '../config/env.js';
+import { parseIndianDate } from '../utils/dateUtils.js';
 
 /**
  * Service to interface with Google Calendar API (v3)
@@ -28,14 +29,14 @@ export const calendarService = {
       const calendar = google.calendar({ version: 'v3', auth });
 
       // Normalize time bounds
-      const minDate = new Date(timeMin);
+      const minDate = parseIndianDate(timeMin) || new Date(timeMin);
       if (isNaN(minDate.getTime())) {
         throw new Error(`Invalid start date: "${timeMin}"`);
       }
 
       let maxDate;
       if (timeMax) {
-        maxDate = new Date(timeMax);
+        maxDate = parseIndianDate(timeMax) || new Date(timeMax);
         if (isNaN(maxDate.getTime())) {
           throw new Error(`Invalid end date: "${timeMax}"`);
         }
@@ -141,8 +142,10 @@ export const calendarService = {
       const auth = await getAuthenticatedClientForUser(user);
       const calendar = google.calendar({ version: 'v3', auth });
 
-      const startIso = new Date(startTime).toISOString();
-      const endIso = new Date(endTime).toISOString();
+      const startDate = parseIndianDate(startTime) || new Date(startTime);
+      const endDate = parseIndianDate(endTime) || new Date(endTime);
+      const startIso = startDate.toISOString();
+      const endIso = endDate.toISOString();
 
       const requestBody = {
         summary,

@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import { Task } from '../models/Task.js';
+import { parseIndianDate } from '../utils/dateUtils.js';
 
 export const taskService = {
   /**
@@ -10,12 +11,14 @@ export const taskService = {
    * @param {string} params.title - Title of the task
    * @param {string} [params.description] - Task details or notes
    * @param {string} [params.priority] - 'low' | 'medium' | 'high'
-   * @param {string|Date} [params.dueDate] - Due date timestamp
+   * @param {string|Date} [params.dueDate] - Due date timestamp (accepts DD-MM-YYYY, 23 oct, 23 october, ISO)
    */
   async createTask({ userId, title, description = '', priority = 'medium', dueDate = null }) {
     if (!title || typeof title !== 'string') {
       throw new Error('A non-empty string title is required to create a task.');
     }
+
+    const parsedDue = dueDate ? parseIndianDate(dueDate) : null;
 
     const taskData = {
       userId: userId || null,
@@ -23,7 +26,7 @@ export const taskService = {
       description: description ? description.trim() : '',
       priority: ['low', 'medium', 'high'].includes(priority) ? priority : 'medium',
       status: 'pending',
-      dueDate: dueDate ? new Date(dueDate) : null,
+      dueDate: parsedDue,
     };
 
     if (mongoose.connection.readyState === 1) {
@@ -45,7 +48,7 @@ export const taskService = {
         id: mockId,
         _id: mockId,
         ...taskData,
-        dueDate: taskData.dueDate ? taskData.dueDate.toISOString() : null,
+        dueDate: parsedDue ? parsedDue.toISOString() : null,
         createdAt: new Date().toISOString(),
       };
     }

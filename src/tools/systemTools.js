@@ -3,36 +3,42 @@ import { z } from 'zod';
 export const systemTools = [
   {
     name: 'get_current_time',
-    description: 'Returns the current server date, time, day of week, and timezone. Call this whenever you need to resolve relative dates like "today", "tomorrow", "next Tuesday", or compute remaining time.',
+    description: 'Returns the current server date, time, day of week, and timezone. Call this whenever you need to resolve relative dates like "today", "tomorrow", "next Tuesday", or compute remaining time. Always formats in Indian standard format.',
     isWriteAction: false,
     schema: z.object({
-      timezone: z.string().nullable().optional().describe('Optional timezone identifier, e.g. "Asia/Kolkata", "America/New_York", or "UTC"'),
+      timezone: z.string().nullable().optional().describe('Optional timezone identifier, e.g. "Asia/Kolkata", "America/New_York", or "UTC". Defaults to "Asia/Kolkata".'),
     }),
     parameters: {
       type: 'object',
       properties: {
         timezone: {
           type: ['string', 'null'],
-          description: 'Optional timezone identifier (e.g., "UTC", "America/New_York", "Asia/Kolkata") or null for local system time.',
+          description: 'Optional timezone identifier (defaults to "Asia/Kolkata").',
         },
       },
       required: [],
     },
     execute: async (args = {}) => {
       const now = new Date();
-      const tz = args.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+      const tz = args.timezone || 'Asia/Kolkata';
       
-      const formatted = new Intl.DateTimeFormat('en-US', {
+      const formatted = new Intl.DateTimeFormat('en-IN', {
         timeZone: tz,
         dateStyle: 'full',
         timeStyle: 'long',
       }).format(now);
 
+      const day = String(now.getDate()).padStart(2, '0');
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const year = now.getFullYear();
+
       return {
         iso: now.toISOString(),
         formatted,
         timeZone: tz,
-        dayOfWeek: new Intl.DateTimeFormat('en-US', { timeZone: tz, weekday: 'long' }).format(now),
+        indianDateFormat: `${day}-${month}-${year}`,
+        indianTextFormat: now.toLocaleDateString('en-IN', { timeZone: tz, day: 'numeric', month: 'short', year: 'numeric' }),
+        dayOfWeek: new Intl.DateTimeFormat('en-IN', { timeZone: tz, weekday: 'long' }).format(now),
         hours: now.getHours(),
         minutes: now.getMinutes(),
       };

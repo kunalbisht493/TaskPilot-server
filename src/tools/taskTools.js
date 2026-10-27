@@ -23,7 +23,7 @@ export const taskTools = [
         .string()
         .nullable()
         .optional()
-        .describe('Optional ISO date/time string for when the task is due, e.g. "2026-09-26T17:00:00Z"'),
+        .describe('Due date in Indian format (e.g. "23-10-2026", "23 oct", "23 October 2026") or ISO date string.'),
     }),
     parameters: {
       type: 'object',
@@ -43,7 +43,7 @@ export const taskTools = [
         },
         dueDate: {
           type: ['string', 'null'],
-          description: 'Optional ISO date/time timestamp representing the deadline.',
+          description: 'Due date in Indian format (e.g. "23-10-2026", "23 oct", "23 October 2026") or ISO string.',
         },
       },
       required: ['title'],
