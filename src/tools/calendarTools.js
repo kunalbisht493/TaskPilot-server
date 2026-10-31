@@ -1,11 +1,12 @@
 import { z } from 'zod';
 import { calendarService } from '../services/calendarService.js';
+import { parseIndianDate, formatIndianDate, formatISTTime } from '../utils/dateUtils.js';
 
 export const calendarTools = [
   {
     name: 'check_calendar_availability',
     description:
-      "Checks the user's Google Calendar for existing events and busy slots within a specified date/time window. Call this tool whenever asked about schedule availability, free slots, or before proposing/scheduling a meeting.",
+      "Checks the user's Google Calendar for existing events and busy slots within a specified date/time window. Call this tool whenever asked about schedule availability, free slots, or before proposing/scheduling a meeting to avoid overlap.",
     isWriteAction: false,
     schema: z.object({
       startDate: z
@@ -26,7 +27,7 @@ export const calendarTools = [
         .nullable()
         .optional()
         .describe(
-          'Optional timezone string (e.g., "America/New_York", "Asia/Kolkata", "UTC"). Defaults to local or UTC.'
+          'Optional timezone string (e.g., "America/New_York", "Asia/Kolkata", "UTC"). Defaults to "Asia/Kolkata".'
         ),
     }),
     parameters: {
@@ -56,8 +57,11 @@ export const calendarTools = [
       if (!user) {
         return {
           connected: false,
+          hasConflicts: false,
+          totalEvents: 0,
+          events: [],
           message:
-            'No authenticated user session is active. Google Calendar integration requires logging in with Google OAuth (/api/auth/google).',
+            'No authenticated user session is active. Google Calendar integration requires logging in with Google OAuth (/api/auth/google). Proceeding assuming no local calendar conflicts; invoke create_calendar_event to trigger the confirmation modal.',
         };
       }
 
@@ -65,7 +69,7 @@ export const calendarTools = [
         user,
         timeMin: startDate,
         timeMax: endDate,
-        timeZone,
+        timeZone: timeZone || 'Asia/Kolkata',
       });
     },
   },
@@ -73,7 +77,7 @@ export const calendarTools = [
   {
     name: 'create_calendar_event',
     description:
-      'Schedules and creates a new meeting or event on the user\'s Google Calendar with a title, start datetime, end datetime, and optional description. THIS IS A WRITE ACTION THAT MUTATES EXTERNAL STATE AND REQUIRES HUMAN CONFIRMATION BEFORE EXECUTION.',
+      'Schedules and creates a new meeting or event on the user\'s Google Calendar with a title, start datetime, end datetime, location/platform, and optional description. Checks for time conflicts to avoid overlaps. THIS IS A WRITE ACTION THAT MUTATES EXTERNAL STATE AND REQUIRES HUMAN CONFIRMATION BEFORE EXECUTION.',
     isWriteAction: true,
     schema: z.object({
       summary: z.string().min(1).describe('The title or summary of the meeting/event, e.g. "Meeting with Mentor"'),
@@ -90,16 +94,21 @@ export const calendarTools = [
         .nullable()
         .optional()
         .describe('Optional meeting agenda or notes'),
+      location: z
+        .string()
+        .nullable()
+        .optional()
+        .describe('Location or platform where the meeting will be held, e.g. "Google Meet", "Room 402", or an address. Defaults to "Google Meet".'),
       timeZone: z
         .string()
         .nullable()
         .optional()
-        .describe('Optional timezone (e.g. "Asia/Kolkata", "America/New_York", "UTC")'),
+        .describe('Optional timezone (e.g. "Asia/Kolkata", "America/New_York", "UTC"). Defaults to "Asia/Kolkata".'),
       attendees: z
-        .array(z.string().email())
+        .array(z.string())
         .nullable()
         .optional()
-        .describe('Optional list of attendee email addresses'),
+        .describe('Optional list of attendee email addresses or participant names'),
     }),
     parameters: {
       type: 'object',
@@ -120,6 +129,10 @@ export const calendarTools = [
           type: ['string', 'null'],
           description: 'Optional description or agenda for the event.',
         },
+        location: {
+          type: ['string', 'null'],
+          description: 'Location or platform where the meeting will be held (e.g. "Google Meet", "Room 402").',
+        },
         timeZone: {
           type: ['string', 'null'],
           description: 'Optional timezone identifier (e.g. "UTC", "Asia/Kolkata").',
@@ -129,10 +142,23 @@ export const calendarTools = [
           items: {
             type: 'string',
           },
-          description: 'Optional array of attendee email addresses.',
+          description: 'Optional array of attendee email addresses or participant names.',
         },
       },
       required: ['summary', 'startTime', 'endTime'],
+    },
+    getConfirmationDescription: (args = {}) => {
+      try {
+        const s = parseIndianDate(args.startTime) || new Date(args.startTime);
+        const e = parseIndianDate(args.endTime) || new Date(args.endTime);
+        const dateStr = formatIndianDate(s, 'full');
+        const timeStr = `${formatISTTime(s)} – ${formatISTTime(e)}`;
+        const attendeesStr = args.attendees && args.attendees.length ? ` with ${args.attendees.join(', ')}` : '';
+        const locStr = args.location ? ` at ${args.location}` : ' via Google Meet';
+        return `Schedule calendar event "${args.summary}" on ${dateStr} from ${timeStr}${attendeesStr}${locStr}.`;
+      } catch (_) {
+        return `Schedule calendar event "${args.summary || 'Meeting'}".`;
+      }
     },
     execute: async (args, context = {}) => {
       const user = context.user;
@@ -151,7 +177,8 @@ export const calendarTools = [
         startTime: args.startTime,
         endTime: args.endTime,
         description: args.description || '',
-        timeZone: args.timeZone,
+        location: args.location || '',
+        timeZone: args.timeZone || 'Asia/Kolkata',
         attendees: args.attendees || [],
       });
     },

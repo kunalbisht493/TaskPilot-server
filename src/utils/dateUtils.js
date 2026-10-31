@@ -151,3 +151,47 @@ export function formatIndianDate(date, style = 'short', withTime = false) {
 
   return `${datePart}, ${timePart}`;
 }
+
+/**
+ * Formats a Date or timestamp string into Indian Standard Time (IST), e.g. "03:00 PM IST".
+ * @param {string|Date|number} date
+ * @param {boolean} [includeTzSuffix=true]
+ * @returns {string}
+ */
+export function formatISTTime(date, includeTzSuffix = true) {
+  if (!date) return '';
+  const d = date instanceof Date ? date : (parseIndianDate(date) || new Date(date));
+  if (!d || isNaN(d.getTime())) return String(date);
+
+  const timeStr = d.toLocaleTimeString('en-IN', {
+    timeZone: 'Asia/Kolkata',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true,
+  });
+
+  return includeTzSuffix ? `${timeStr} IST` : timeStr;
+}
+
+/**
+ * Formats a Date or timestamp into full IST date and time string.
+ * e.g. "Saturday, 24 October 2026, 03:00 PM IST"
+ * @param {string|Date|number} date
+ * @returns {string}
+ */
+export function formatISTFullDateTime(date) {
+  if (!date) return '';
+  const d = date instanceof Date ? date : (parseIndianDate(date) || new Date(date));
+  if (!d || isNaN(d.getTime())) return String(date);
+
+  const datePart = d.toLocaleDateString('en-IN', {
+    timeZone: 'Asia/Kolkata',
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
+
+  const timePart = formatISTTime(d, true);
+  return `${datePart}, ${timePart}`;
+}

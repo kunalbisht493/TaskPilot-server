@@ -112,12 +112,16 @@ class ToolRegistry {
 
     // Step 2: Guardrail - Check if write action requires human confirmation
     if (tool.isWriteAction && !context.isConfirmed) {
+      const description = typeof tool.getConfirmationDescription === 'function'
+        ? tool.getConfirmationDescription(rawArgs)
+        : tool.description;
+
       return {
         success: false,
         needsConfirmation: true,
         tool: toolName,
         args: rawArgs,
-        description: tool.description,
+        description,
       };
     }
 

@@ -63,7 +63,7 @@ class LLMAdapter {
       this.geminiClient = new GoogleGenerativeAI(config.gemini.apiKey);
     }
 
-    const modelName = config.gemini.model || 'gemini-3.8-flash';
+    const modelName = config.gemini.model || 'gemini-2.5-flash';
     const functionDeclarations = toolRegistry.getGeminiFunctionDeclarations();
 
     const model = this.geminiClient.getGenerativeModel({
@@ -236,9 +236,46 @@ class LLMAdapter {
 
     // If last message was a tool observation, wrap up with final answer
     if (lastMessage && lastMessage.role === 'tool') {
+      let parsed = null;
+      try {
+        parsed = typeof lastMessage.content === 'string' ? JSON.parse(lastMessage.content) : lastMessage.content;
+      } catch (_) {}
+
+      if (lastMessage.name === 'create_calendar_event') {
+        if (parsed?.conflict || parsed?.overlap) {
+          const conf = parsed.conflictingEvents?.[0] || {};
+          const withWhom = conf.participants?.length ? conf.participants.join(', ') : 'No other participants listed';
+          return {
+            type: 'final_answer',
+            content: `### ⚠️ Meeting Overlap Detected\n\nA meeting is already scheduled on that date and time:\n\n- **Title:** ${conf.title || 'Existing Meeting'}\n- **Date:** ${conf.date || 'Scheduled Date'}\n- **Time:** ${conf.timeIST || 'Scheduled Time IST'}\n- **With Whom / Participants:** ${withWhom}\n- **Location:** ${conf.location || 'Online / Google Meet'}\n\nPlease choose another time slot or let me know if you would like me to check free openings.`,
+            provider: 'mock',
+          };
+        }
+
+        if (parsed?.success) {
+          const withWhom = parsed.participants?.length ? parsed.participants.join(', ') : (parsed.withWhom || 'None specified');
+          const link = parsed.meetingLink || parsed.htmlLink || 'https://calendar.google.com';
+          return {
+            type: 'final_answer',
+            content: `### 📅 Meeting Scheduled Successfully!\n\n- **Title:** ${parsed.title || parsed.summary}\n- **Date:** ${parsed.date || 'Scheduled Date'}\n- **Time:** ${parsed.timeIST || 'Scheduled Time IST'}\n- **Location:** ${parsed.location || 'Google Meet'}\n- **With Whom / Participants:** ${withWhom}\n- **Meeting Link:** [View Google Calendar Event](${link})`,
+            provider: 'mock',
+          };
+        }
+      }
+
+      if (lastMessage.name === 'check_calendar_availability' && (parsed?.hasConflicts || parsed?.totalEvents > 0)) {
+        const first = parsed.events?.[0] || {};
+        const withWhom = first.participants?.length ? first.participants.join(', ') : 'No other participants listed';
+        return {
+          type: 'final_answer',
+          content: `### ⚠️ Meeting Already Scheduled (Overlap Avoided)\n\nA meeting is already scheduled on that date and time:\n\n- **Title:** ${first.title || first.summary || 'Scheduled Event'}\n- **Date:** ${first.date || 'Scheduled Date'}\n- **Time:** ${first.timeIST || (first.startIST + ' – ' + first.endIST)}\n- **With Whom / Participants:** ${withWhom}\n- **Location:** ${first.location || 'Google Meet'}\n\nTo avoid double-booking, the new meeting was not scheduled. Please choose a different time slot.`,
+          provider: 'mock',
+        };
+      }
+
       return {
         type: 'final_answer',
-        content: `I received the result from "${lastMessage.name}": ${JSON.stringify(lastMessage.content)}. Your request has been processed successfully.`,
+        content: `I received the result from "${lastMessage.name}": ${typeof lastMessage.content === 'object' ? JSON.stringify(lastMessage.content) : lastMessage.content}. Your request has been processed successfully.`,
         provider: 'mock',
       };
     }
