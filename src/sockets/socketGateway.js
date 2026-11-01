@@ -31,19 +31,40 @@ export function initializeSocket(httpServer) {
   ioInstance.on('connection', (socket) => {
     console.log(`[Socket] Client connected: ${socket.id}`);
 
+    // Auto-join conversation room if valid conversationId provided in handshake auth or query
+    const handshakeConvId = socket.handshake?.auth?.conversationId || socket.handshake?.query?.conversationId;
+    if (handshakeConvId && typeof handshakeConvId === 'string' && handshakeConvId.trim()) {
+      const initialRoom = handshakeConvId.trim();
+      socket.join(initialRoom);
+      console.log(`[Socket] Client ${socket.id} joined conversation room: ${initialRoom}`);
+      socket.emit('joined_room', { conversationId: initialRoom });
+    }
+
     socket.on('join_conversation', (conversationId) => {
-      socket.join(conversationId);
-      console.log(`[Socket] Client ${socket.id} joined conversation room: ${conversationId}`);
-      socket.emit('joined_room', { conversationId });
+      if (!conversationId || typeof conversationId !== 'string' || !conversationId.trim()) return;
+      const room = conversationId.trim();
+      const isAlreadyInRoom = socket.rooms.has(room);
+      socket.join(room);
+      if (!isAlreadyInRoom) {
+        console.log(`[Socket] Client ${socket.id} joined conversation room: ${room}`);
+      }
+      socket.emit('joined_room', { conversationId: room });
+
+
+
     });
 
     socket.on('leave_conversation', (conversationId) => {
-      socket.leave(conversationId);
-      console.log(`[Socket] Client ${socket.id} left conversation room: ${conversationId}`);
+      if (!conversationId || typeof conversationId !== 'string' || !conversationId.trim()) return;
+      const room = conversationId.trim();
+      socket.leave(room);
+      console.log(`[Socket] Client ${socket.id} left conversation room: ${room}`);
+
+
     });
 
-    socket.on('disconnect', () => {
-      console.log(`[Socket] Client disconnected: ${socket.id}`);
+    socket.on('disconnect', (reason) => {
+      console.log(`[Socket] Client disconnected: ${socket.id} (${reason || 'unknown'})`);
     });
   });
 
