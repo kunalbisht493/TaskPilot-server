@@ -13,7 +13,7 @@ const router = express.Router();
  */
 router.post('/task', optionalAuth, async (req, res, next) => {
   try {
-    const { goal, conversationId = `conv_${Date.now()}`, providerPreference, userId } = req.body;
+    const { goal, conversationId = `conv_${Date.now()}`, sessionId, providerPreference, userId } = req.body;
 
     if (!goal || typeof goal !== 'string') {
       return res.status(400).json({
@@ -35,6 +35,7 @@ router.post('/task', optionalAuth, async (req, res, next) => {
       context: {
         user,
         userId: user?._id || userId || null,
+        sessionId: sessionId || null,
       },
       onStepUpdate: (stepData) => {
         emitReasoningStep(conversationId, stepData);
@@ -58,6 +59,7 @@ router.post('/task', optionalAuth, async (req, res, next) => {
         success: true,
         status: 'awaiting_confirmation',
         conversationId,
+        sessionId,
         pendingConfirmation: pendingRecord,
         result,
       });
@@ -66,6 +68,7 @@ router.post('/task', optionalAuth, async (req, res, next) => {
     res.json({
       success: true,
       status: result.status,
+      sessionId,
       conversationId,
       result,
     });
@@ -97,6 +100,8 @@ router.post('/confirm', optionalAuth, async (req, res, next) => {
 
     res.json({
       success: true,
+      conversationId: req.body.conversationId || resolution.conversationId,
+      sessionId: req.body.sessionId || null,
       ...resolution,
     });
   } catch (err) {
