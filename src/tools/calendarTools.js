@@ -57,11 +57,12 @@ export const calendarTools = [
       if (!user) {
         return {
           connected: false,
-          hasConflicts: false,
-          totalEvents: 0,
+          calendarRetrieved: false,
+          hasConflicts: null,
+          totalEvents: null,
           events: [],
           message:
-            'No authenticated user session is active. Google Calendar integration requires logging in with Google OAuth (/api/auth/google). Proceeding assuming no local calendar conflicts; invoke create_calendar_event to trigger the confirmation modal.',
+            'No authenticated user session is active. Google Calendar integration requires logging in with Google OAuth (/api/auth/google). Availability could not be verified.',
         };
       }
 

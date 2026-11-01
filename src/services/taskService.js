@@ -18,7 +18,7 @@ export const taskService = {
       throw new Error('A non-empty string title is required to create a task.');
     }
 
-    const parsedDue = dueDate ? parseIndianDate(dueDate) : null;
+    const parsedDue = dueDate ? parseIndianDate(dueDate, undefined, true) : null;
 
     const taskData = {
       userId: userId || null,

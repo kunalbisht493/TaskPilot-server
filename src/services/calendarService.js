@@ -1,7 +1,7 @@
 import { google } from 'googleapis';
 import { getAuthenticatedClientForUser } from './googleAuthService.js';
 import { config } from '../config/env.js';
-import { parseIndianDate, formatIndianDate, formatISTTime } from '../utils/dateUtils.js';
+import { parseIndianDate, formatIndianDate, formatISTTime, resolveCalendarWindow } from '../utils/dateUtils.js';
 
 /**
  * Service to interface with Google Calendar API (v3)
@@ -20,6 +20,10 @@ export const calendarService = {
     if (!user || (!user.googleTokens?.accessToken && !user.googleTokens?.refreshToken)) {
       return {
         isConnected: false,
+        calendarRetrieved: false,
+        hasConflicts: null,
+        totalEvents: null,
+        events: [],
         message: 'Google Calendar is not connected. User must sign in via Google OAuth to access calendar data.',
       };
     }
@@ -28,26 +32,8 @@ export const calendarService = {
       const auth = await getAuthenticatedClientForUser(user);
       const calendar = google.calendar({ version: 'v3', auth });
 
-      // Normalize time bounds
-      const minDate = parseIndianDate(timeMin) || new Date(timeMin);
-      if (isNaN(minDate.getTime())) {
-        throw new Error(`Invalid start date: "${timeMin}"`);
-      }
-
-      let maxDate;
-      if (timeMax) {
-        maxDate = parseIndianDate(timeMax) || new Date(timeMax);
-        if (isNaN(maxDate.getTime())) {
-          throw new Error(`Invalid end date: "${timeMax}"`);
-        }
-      } else {
-        // Default to end of the day for timeMin (23:59:59.999)
-        maxDate = new Date(minDate);
-        maxDate.setHours(23, 59, 59, 999);
-      }
-
-      const isoTimeMin = minDate.toISOString();
-      const isoTimeMax = maxDate.toISOString();
+      // Normalize time bounds safely in IST
+      const { isoTimeMin, isoTimeMax } = resolveCalendarWindow(timeMin, timeMax, timeZone);
 
       // Query Google Calendar Events API
       const response = await calendar.events.list({
@@ -113,6 +99,7 @@ export const calendarService = {
 
       return {
         isConnected: true,
+        calendarRetrieved: true,
         timeWindow: {
           start: isoTimeMin,
           end: isoTimeMax,
@@ -138,12 +125,16 @@ export const calendarService = {
 
       return {
         isConnected: true,
+        calendarRetrieved: false,
+        hasConflicts: null,
+        totalEvents: null,
+        events: [],
         error: isApiDisabled
           ? `Google Calendar API has not been enabled for project ${projectId}. Enable it by visiting ${enableUrl}`
           : `Google Calendar API error: ${err.message}`,
         message: isApiDisabled
           ? 'Google Calendar API is disabled in your Google Cloud Project. Please enable it in the Google Cloud Console.'
-          : 'Failed to fetch calendar availability from Google.',
+          : `Failed to fetch calendar availability from Google: ${err.message}`,
         actionRequired: isApiDisabled ? 'ENABLE_GOOGLE_CALENDAR_API' : undefined,
         enableUrl: isApiDisabled ? enableUrl : undefined,
       };
