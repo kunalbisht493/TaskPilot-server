@@ -204,7 +204,7 @@ sequenceDiagram
 | Web search tool | Doesn't add a new *type* of capability — you already have a read tool and a write tool |
 | Multi-user/roles | This is a single-user personal assistant, not a SaaS product — no need for permission systems |
 | Redis rate limiting, retry/backoff | Real production concerns, but not needed to prove the core agentic pattern at portfolio scale |
-| Configurable audit log (filter/search/export) | A basic table proves the audit-trail concept just as well |
+| External audit log export (CSV/PDF) | Prioritized in-app multi-criteria filtering (category, status, action), live matching counts, and human-readable activity cards over flat file exports |
 
 Saying *"I cut X because it didn't add a new capability, and I prioritized Y because it did"* is a stronger answer than pretending you built everything — it shows you scope deliberately, which is exactly what engineers are expected to do.
 
