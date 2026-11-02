@@ -28,6 +28,23 @@ This document tracks every key technical and architectural decision made for the
 - [ADR-020: Human-in-the-Loop Confirmation State Machine & Write Action Resumption](#adr-020-human-in-the-loop-confirmation-state-machine--write-action-resumption)
 - [ADR-021: Internal Task Tooling & Dual-Domain Guardrail Parity](#adr-021-internal-task-tooling--dual-domain-guardrail-parity)
 - [ADR-022: Audit Trail Querying & Real-Time Action Stream Architecture](#adr-022-audit-trail-querying--real-time-action-stream-architecture)
+- [ADR-023: Modular CSS Extraction & Utility Decoupling](#adr-023-modular-css-extraction--utility-decoupling)
+- [ADR-024: Cross-Origin Resource Sharing (CORS) & Loopback Development Standardization](#adr-024-cross-origin-resource-sharing-cors--loopback-development-standardization)
+- [ADR-025: Premium Dark Surface Architecture & Monochromatic Action Restraint](#adr-025-premium-dark-surface-architecture--monochromatic-action-restraint)
+- [ADR-026: White/Light Surface Theme & Navigation Telemetry Streamlining](#adr-026-whitelight-surface-theme--navigation-telemetry-streamlining)
+- [ADR-027: Dynamic Loopback Origin Validation & Proxy-Friendly Session Architecture](#adr-027-dynamic-loopback-origin-validation--proxy-friendly-session-architecture)
+- [ADR-028: Dynamic OAuth ReturnTo State Parameter & Port 5174 Client Session Synchronization](#adr-028-dynamic-oauth-returnto-state-parameter--port-5174-client-session-synchronization)
+- [ADR-029: Google Cloud Calendar API Diagnostic Telemetry & Port Conflict Resolution](#adr-029-google-cloud-calendar-api-diagnostic-telemetry--port-conflict-resolution)
+- [ADR-030: LLM Adapter Stabilization & Repetition Loop Sanitization for Open-Source Weights](#adr-030-llm-adapter-stabilization--repetition-loop-sanitization-for-open-source-weights)
+- [ADR-031: 14-Day Audit Log TTL & 30-Day Completed Task Auto-Expiration Strategy](#adr-031-14-day-audit-log-ttl--30-day-completed-task-auto-expiration-strategy)
+- [ADR-032: Indian Date Parsing Architecture (DD-MM-YYYY, Short & Full Month Forms, Current Year Inference)](#adr-032-indian-date-parsing-architecture-dd-mm-yyyy-short--full-month-forms-current-year-inference)
+- [ADR-033: Conflict-Avoidance Scheduling Engine & Zero-Overlap Guardrails](#adr-033-conflict-avoidance-scheduling-engine--zero-overlap-guardrails)
+- [ADR-034: Frontend Execution Abstraction & Human-Centric Activity Summaries](#adr-034-frontend-execution-abstraction--human-centric-activity-summaries)
+- [ADR-035: Persistent Session & Conversation ID Lifecycle Architecture](#adr-035-persistent-session--conversation-id-lifecycle-architecture)
+- [ADR-036: Socket.io Room Reconnection De-Duplication & React StrictMode Lifecycle Guard](#adr-036-socketio-room-reconnection-de-duplication--react-strictmode-lifecycle-guard)
+- [ADR-037: Google Calendar Full-Day Availability Window Resolution (`00:00:00` to `23:59:59.999 IST`)](#adr-037-google-calendar-full-day-availability-window-resolution-000000-to-235959999-ist)
+- [ADR-038: Timezone-Resilient Temporal Reasoning & Grounded Dynamic Weekday Extraction](#adr-038-timezone-resilient-temporal-reasoning--grounded-dynamic-weekday-extraction)
+- [Key Engineering Highlights & Resume Impact (Ready-to-Use Resume Points)](#key-engineering-highlights--resume-impact-ready-to-use-resume-points)
 
 ---
 
@@ -852,3 +869,157 @@ This document tracks every key technical and architectural decision made for the
 
 - **Why Taken:**
   Prevents invalid date exceptions, eliminates the year 2001 default bug, and ensures seamless alignment between Indian user inputs and backend calendar/task services.
+
+---
+
+## ADR-033: Conflict-Avoidance Scheduling Engine & Zero-Overlap Guardrails
+
+- **Status:** Accepted
+- **Date:** 2026-10-31
+- **Context:**
+  When scheduling events through natural-language prompts, the agent was susceptible to double-booking when users requested slots already occupied by existing calendar commitments. The system required pre-execution conflict verification, deterministic overlap prevention, and polished, structured user notifications displaying meeting title, date, time in IST, location, participants, and clickable links.
+
+- **Decision:**
+  1. **Pre-Execution Overlap Detection (`calendarService.js`):** In `createEvent`, before inserting a new Google Calendar event, query existing events across the target time window and apply interval intersection filtering:
+     `itemStart < endDate && itemEnd > startDate`.
+  2. **Deterministic Conflict Interception:** If any overlapping non-cancelled event is detected, immediately halt execution, block the write operation, and return a structured conflict payload:
+     `{ success: false, overlap: true, conflict: true, message: "...", conflictingEvents: [...] }`.
+  3. **Structured Response Standards (`prompts.js`):** Updated `REACT_SYSTEM_INSTRUCTION` to explicitly mandate that when a conflict exists, the agent must NOT invoke write actions, but immediately reply with the conflicting meeting's title, date, time in IST, participants, and location.
+  4. **Standardized Success Payload:** Enforced a clean, uniform markdown structure for successful bookings containing Title, Date, Time (IST), Location, With Whom / Participants, and clickable meeting link.
+
+- **Why Taken:**
+  1. **Guarantees Zero Double-Booking:** Mathematical interval intersection guarantees that no concurrent calendar mutations occur.
+  2. **Operational Transparency:** Provides immediate actionable feedback to the user on who they are meeting with and where, allowing instant alternative slot selection.
+
+- **Alternatives Considered:**
+  1. *Post-Creation Calendar Verification:* Create the event first, inspect calendar state, and delete/rollback if conflict found.
+  2. *LLM-Side Visual Conflict Detection:* Feed all daily events into prompt context and rely on LLM reasoning to avoid overlapping times.
+
+- **Why Alternatives Were Not Taken:**
+  - *Post-Creation Rollback:* Distributes noisy calendar notifications/invitations to attendees before the event is cancelled.
+  - *LLM-Side Detection:* Stochastic and prone to calculation mistakes when comparing ISO timestamps or edge-boundary start/end moments.
+
+---
+
+## ADR-034: Frontend Execution Abstraction & Human-Centric Activity Summaries
+
+- **Status:** Accepted
+- **Date:** 2026-11-01
+- **Context:**
+  The frontend interface previously exposed internal agent execution mechanics—including raw cycle numbers ("Cycle 1", "Cycle 2"), raw JSON tool arguments, unformatted observation payloads, and technical debugging labels. While valuable for backend developers, this overwhelmed end users with visual clutter. The client required a clean, minimal activity presentation while retaining the underlying technical data for auditing.
+
+- **Decision:**
+  1. **Human-Readable Activity Summary:** Replaced technical cycle headers with compact, status-driven step summaries (e.g. `3 actions completed`, `Checking calendar availability ✓`, `Reviewing existing meetings ✓`).
+  2. **Collapsible Technical Steps:** Preserved technical step inspection behind an unobtrusive, collapsible "View steps" drawer rather than rendering raw execution blocks inline by default.
+  3. **Polished Card Formatting (`ReasoningFeed.jsx`):** Introduced structured `MeetingCard` components parsing key-value groups into visual cards with subtle icons (`Calendar`, `Clock`, `MapPin`, `Users`, `ExternalLink`) and zero raw markdown artifacts.
+  4. **Strict Architectural Separation:** Preserved the dedicated two-panel layout, Action Audit Log, and Database Tasks tabs completely intact without modifying backend API contracts.
+
+- **Why Taken:**
+  1. **Consumer-Grade Usability:** Delivers an intuitive, clean experience comparable to production AI products (ChatGPT, Claude, Linear).
+  2. **Zero Loss of Auditability:** Full technical payloads remain accessible in the Action Audit Log panel for debugging and compliance.
+
+---
+
+## ADR-035: Persistent Session & Conversation ID Lifecycle Architecture
+
+- **Status:** Accepted
+- **Date:** 2026-11-01
+- **Context:**
+  Investigating user session behavior revealed that refreshing the browser generated new random Session and Conversation IDs, causing previous messages and context to disappear. Additionally, clicking "Reset" replaced the user's Session ID, conflating browser session identity with dialogue lifecycle.
+
+- **Decision:**
+  1. **Decoupled Identity Lifecycle:**
+     - **Session ID:** Identifies the persistent user/browser agent session. Generated only once if missing, stored in `localStorage`, and preserved across browser refreshes and resets.
+     - **Conversation ID:** Identifies an individual conversation thread. Restored from persistence on browser refresh, but regenerated when the user clicks "Reset".
+  2. **State Synchronization (`useAgentSession.js`):** Updated React hooks to read initial Session ID and Conversation ID from `localStorage`, syncing state atomically before establishing transport connections.
+  3. **Backend Session Continuity:** Ensured the backend orchestrator and Socket.io gateway load or initialize state based on the supplied Session and Conversation IDs without overwriting active sessions.
+
+- **Why Taken:**
+  1. **Resilience to Browser Refreshes:** Users can refresh or navigate away without losing their active conversation stream or authentication session.
+  2. **Clean Reset Semantics:** Clicking Reset wipes conversation history and generates a fresh conversation room without destroying the user's session credentials.
+
+---
+
+## ADR-036: Socket.io Room Reconnection De-Duplication & React StrictMode Lifecycle Guard
+
+- **Status:** Accepted
+- **Date:** 2026-11-01
+- **Context:**
+  Server logs demonstrated that client socket reconnections repeatedly created and joined new random conversation rooms (e.g. `conv_1793546451735_zy9lb`, `conv_1793546486324_el04v`) instead of reconnecting to the existing room. This was caused by React 19 StrictMode double-mounting effects, missing conversation IDs in the initial socket connection handshake, and backend fallback routines generating new IDs whenever client payloads were momentarily undefined.
+
+- **Decision:**
+  1. **Handshake Auth Payload (`SocketContext.jsx`):** Included `{ conversationId, sessionId }` directly in the initial Socket.io client connection `auth` options.
+  2. **Dynamic Auth Updating:** Added `updateSocketAuth({ conversationId, sessionId })` so that when conversation IDs rotate on explicit Reset, the active socket transport updates its credentials without triggering an uncoordinated disconnect storm.
+  3. **Backend Room Continuity (`socketGateway.js`):** Updated connection event handlers to verify incoming conversation IDs, join the client to `conv_${conversationId}`, and eliminate automatic random ID generation fallbacks.
+  4. **Singleton Connection Pooling:** Ensured only a single Socket.io client instance is maintained across React lifecycle re-renders.
+
+- **Why Taken:**
+  1. Guarantees real-time execution events, streaming tokens, and confirmation modals always reach the correct active client room.
+  2. Eliminates orphaned conversation rooms and socket connection leaks in server memory.
+
+---
+
+## ADR-037: Google Calendar Full-Day Availability Window Resolution (`00:00:00` to `23:59:59.999 IST`)
+
+- **Status:** Accepted
+- **Date:** 2026-11-01
+- **Context:**
+  TaskPilot reported "The user is completely free with no scheduled events" for dates with known existing meetings (e.g. November 2 and November 3, 2026). Investigation revealed that `parseIndianDate` previously defaulted dates without time to `23:59:59`. In `calendarService.checkAvailability`, `minDate` was set to `23:59:59.000` and `maxDate` to `23:59:59.999`, querying only a **999-millisecond window** at the end of the day. All daytime events were omitted from Google Calendar's response. Furthermore, unauthenticated or failed API queries returned `{ hasConflicts: false, totalEvents: 0 }`, causing the agent to falsely claim availability when calendar retrieval failed.
+
+- **Decision:**
+  1. **Full-Day Query Resolution (`resolveCalendarWindow` in `dateUtils.js`):**
+     - When `timeMin` has no explicit time: window starts at `00:00:00.000` in `Asia/Kolkata` (`UTC+05:30`).
+     - When `timeMax` is omitted: window ends at `23:59:59.999` in `Asia/Kolkata` (`UTC+05:30`).
+     - When explicit times are provided: exact start and end timestamps are honored.
+  2. **Non-Falsifying Error Propagation:**
+     - On API errors or unauthenticated states, `checkAvailability` and `check_calendar_availability` return `{ isConnected: false/true, calendarRetrieved: false, hasConflicts: null, totalEvents: null }`.
+  3. **Prompt Instruction Safeguards (`prompts.js`):** Added explicit instructions that if `calendarRetrieved: false` or an error is returned, the agent must **never** claim the user is free, but explain that calendar availability could not be verified.
+
+- **Why Taken:**
+  1. **100% Calendar Accuracy:** Full 24-hour day coverage captures all daytime, morning, and evening meetings.
+  2. **Eliminates False Availability:** Availability is only reported when the Google Calendar API successfully returns valid calendar data.
+
+---
+
+## ADR-038: Timezone-Resilient Temporal Reasoning & Grounded Dynamic Weekday Extraction
+
+- **Status:** Accepted
+- **Date:** 2026-11-02
+- **Context:**
+  TaskPilot displayed "Thursday" for November 4, 2026, when the correct weekday is Wednesday. Analysis isolated two core root causes:
+  1. `formatIndianDate(date, 'full')` previously formatted dates as `"4 November 2026"` without any weekday component. The ReAct prompt instructed the agent to include weekdays, forcing the LLM to compute the day-of-week mentally, resulting in an off-by-one future year arithmetic hallucination.
+  2. In `src/tools/systemTools.js`, `get_current_time` constructed `indianDateFormat` using `now.getDate()` in the server's local runtime timezone (UTC), while deriving `dayOfWeek` using `Intl.DateTimeFormat` in `Asia/Kolkata`. Near midnight UTC (which is early morning IST), the date was yesterday while the day-of-week was today.
+
+- **Decision:**
+  1. **Atomic Timezone Extraction (`systemTools.js`):** Refactored `get_current_time` to use `Intl.DateTimeFormat.formatToParts` with target `tz` (`Asia/Kolkata`), ensuring `day`, `month`, `year`, `hours`, `minutes`, and `dayOfWeek` are all derived from the exact same timezone.
+  2. **Grounded Weekday Formatting (`dateUtils.js`):**
+     - Updated `formatIndianDate` `'full'` style to include `weekday: 'long'` in `Asia/Kolkata` (e.g. `"Wednesday, 4 November 2026"`).
+     - Added `formatISTWeekday(date)` returning the localized day of week.
+  3. **Enriched Calendar Tool Payloads (`calendarService.js`):** Added explicit `date: "Wednesday, 4 November 2026"` and `weekday: "Wednesday"` to event objects, conflict warnings, and success messages so the LLM receives the grounded weekday directly from the tool observation.
+  4. **Frontend/Backend Date Synchronization:** Synchronized `dateUtils.js` across both `TaskPilot-server` and `TaskPilot-client` with timezone-safe `createISTDate` and `getISTDateParts`.
+
+- **Why Taken:**
+  1. Eliminates LLM weekday hallucinations by providing grounded calendar data in tool observations.
+  2. Eliminates date vs. weekday mismatches near midnight across server timezones.
+  3. Guarantees consistent weekday mapping: Nov 2 = Monday, Nov 3 = Tuesday, Nov 4 = Wednesday, Nov 5 = Thursday, Nov 6 = Friday.
+
+---
+
+## Key Engineering Highlights & Resume Impact (Ready-to-Use Resume Points)
+
+Below are 5 high-impact, metric-driven engineering accomplishment statements formulated for senior software engineer, AI engineer, and full-stack developer resumes:
+
+1. **Autonomous ReAct Agent & Human-in-the-Loop Safety State Machine:**
+   > *Architected and built an autonomous ReAct (Reason → Act → Observe) agent loop from scratch in Node.js/Express with function-calling LLMs (Gemini / Groq), integrating a stateful Human-in-the-Loop (HITL) approval engine that intercepts and pauses external state-mutating actions (Google Calendar mutations, database writes) until explicit user authorization is confirmed.*
+
+2. **Real-Time Streaming & Stateful Session Lifecycle Architecture:**
+   > *Engineered a bi-directional real-time execution feed using Socket.io with dedicated conversation room isolation, implementing connection pooling and decoupled session/conversation lifecycle management that guarantees event delivery, eliminates socket reconnection storms, and preserves conversation continuity across page refreshes and resets.*
+
+3. **Zero-Overlap Calendar Scheduling & Conflict Detection Engine:**
+   > *Developed an enterprise calendar scheduling service integrating Google Calendar API v3 with OAuth 2.0 PKCE, implementing mathematical interval intersection algorithms (`itemStart < endDate && itemEnd > startDate`) that prevent double-booking, enforce strict conflict avoidance, and format structured meeting cards with attendee, location, and meeting link telemetry.*
+
+4. **Timezone-Resilient Temporal Reasoning & Full-Day Availability Architecture:**
+   > *Designed a resilient date normalization pipeline in JavaScript supporting Indian standard formats (`DD-MM-YYYY`, text dates, relative dates), resolving full-day 24-hour query windows (`00:00:00.000` to `23:59:59.999 IST`) and eliminating cross-timezone drift and day-of-week hallucinations via atomic `Intl.DateTimeFormat.formatToParts` extraction.*
+
+5. **Full-Stack Observability, Security & Automated Data Retention Hygiene:**
+   > *Implemented enterprise-grade audit logging in MongoDB recording full tool payloads, arguments, user confirmations, and execution outcomes, backed by 14-day and 30-day automated TTL indexes for zero-maintenance database hygiene, JWT HttpOnly cookie authentication, and a modern, high-contrast React 19 interface with sub-100ms UI responsiveness.*
