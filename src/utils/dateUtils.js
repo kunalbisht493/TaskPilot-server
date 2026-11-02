@@ -254,9 +254,33 @@ export function resolveCalendarWindow(timeMin, timeMax, timeZone = 'Asia/Kolkata
 }
 
 /**
- * Formats any date into Indian standard format in Asia/Kolkata timezone.
+ * Returns the long weekday name of any date in Asia/Kolkata timezone.
+ * e.g. "Wednesday"
+ * 
  * @param {string|Date|number} date 
- * @param {'short'|'full'|'dmy'} [style='short'] - 'short' ('23 Oct 2026'), 'full' ('23 October 2026'), 'dmy' ('23-10-2026')
+ * @returns {string}
+ */
+export function formatISTWeekday(date) {
+  if (!date) return '';
+  const d = (date instanceof Date) ? date : (parseIndianDate(date) || new Date(date));
+  if (!d || isNaN(d.getTime())) return '';
+
+  return d.toLocaleDateString('en-IN', {
+    timeZone: 'Asia/Kolkata',
+    weekday: 'long',
+  });
+}
+
+/**
+ * Formats any date into Indian standard format in Asia/Kolkata timezone.
+ * Supports:
+ * - 'full': 'Wednesday, 4 November 2026' (includes weekday)
+ * - 'long': '4 November 2026' (without weekday)
+ * - 'short': '4 Nov 2026'
+ * - 'dmy': '04-11-2026'
+ * 
+ * @param {string|Date|number} date 
+ * @param {'short'|'full'|'long'|'dmy'} [style='short']
  * @param {boolean} [withTime=false] - whether to include Indian time (e.g. '08:30 pm')
  * @returns {string}
  */
@@ -276,13 +300,25 @@ export function formatIndianDate(date, style = 'short', withTime = false) {
     return `${base}, ${time}`;
   }
 
-  const monthFormat = style === 'full' ? 'long' : 'short';
-  const datePart = d.toLocaleDateString('en-IN', {
-    timeZone: 'Asia/Kolkata',
-    day: 'numeric',
-    month: monthFormat,
-    year: 'numeric',
-  });
+  const options = { timeZone: 'Asia/Kolkata' };
+
+  if (style === 'full') {
+    options.weekday = 'long';
+    options.day = 'numeric';
+    options.month = 'long';
+    options.year = 'numeric';
+  } else if (style === 'long') {
+    options.day = 'numeric';
+    options.month = 'long';
+    options.year = 'numeric';
+  } else {
+    // default 'short'
+    options.day = 'numeric';
+    options.month = 'short';
+    options.year = 'numeric';
+  }
+
+  const datePart = d.toLocaleDateString('en-IN', options);
 
   if (!withTime) return datePart;
 
@@ -319,7 +355,7 @@ export function formatISTTime(date, includeTzSuffix = true) {
 
 /**
  * Formats a Date or timestamp into full IST date and time string.
- * e.g. "Saturday, 24 October 2026, 03:00 PM IST"
+ * e.g. "Wednesday, 4 November 2026, 03:00 PM IST"
  * @param {string|Date|number} date
  * @returns {string}
  */

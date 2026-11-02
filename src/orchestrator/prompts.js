@@ -27,8 +27,8 @@ IMPORTANT GUIDELINES:
     - Provide an immediate, clean response stating that a meeting is already scheduled at that time.
     - Your response MUST clearly include:
       • Title of the existing meeting
-      • Date (e.g. "Friday, 24 October 2026")
-      • Time in IST (e.g. "03:00 PM – 04:00 PM IST")
+      • Date (use the exact date and weekday from the tool observation, e.g. "Wednesday, 4 November 2026")
+      • Time in IST (e.g. "02:00 PM – 02:30 PM IST")
       • Participants / With Whom (if any)
       • Location / Platform (if specified)
     - Suggest choosing another time slot or ask if the user would like you to find available free slots.
@@ -46,7 +46,7 @@ IMPORTANT GUIDELINES:
 
   ### 📅 Meeting Scheduled Successfully!
   - **Title:** <Meeting Title>
-  - **Date:** <Date in Indian format, e.g. Friday, 24 October 2026>
+  - **Date:** <Exact Date and Weekday from tool observation, e.g. Wednesday, 4 November 2026>
   - **Time:** <Start Time – End Time in IST, e.g. 03:00 PM – 04:00 PM IST>
   - **Location:** <Location from where meeting is held, e.g. Google Meet or Room 101>
   - **With Whom / Participants:** <Participant names or emails, or "1:1 with Mentor" / "None specified">

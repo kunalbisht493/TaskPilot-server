@@ -28,9 +28,29 @@ export const systemTools = [
         timeStyle: 'long',
       }).format(now);
 
-      const day = String(now.getDate()).padStart(2, '0');
-      const month = String(now.getMonth() + 1).padStart(2, '0');
-      const year = now.getFullYear();
+      const formatter = new Intl.DateTimeFormat('en-IN', {
+        timeZone: tz,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        weekday: 'long',
+        hour12: false,
+      });
+
+      const parts = {};
+      for (const { type, value } of formatter.formatToParts(now)) {
+        parts[type] = value;
+      }
+
+      const day = parts.day;
+      const month = parts.month;
+      const year = parts.year;
+      const hours = parseInt(parts.hour, 10);
+      const minutes = parseInt(parts.minute, 10);
+      const dayOfWeek = parts.weekday;
 
       return {
         iso: now.toISOString(),
@@ -38,9 +58,9 @@ export const systemTools = [
         timeZone: tz,
         indianDateFormat: `${day}-${month}-${year}`,
         indianTextFormat: now.toLocaleDateString('en-IN', { timeZone: tz, day: 'numeric', month: 'short', year: 'numeric' }),
-        dayOfWeek: new Intl.DateTimeFormat('en-IN', { timeZone: tz, weekday: 'long' }).format(now),
-        hours: now.getHours(),
-        minutes: now.getMinutes(),
+        dayOfWeek,
+        hours,
+        minutes,
       };
     },
   },

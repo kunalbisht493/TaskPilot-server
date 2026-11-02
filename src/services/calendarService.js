@@ -1,7 +1,13 @@
 import { google } from 'googleapis';
 import { getAuthenticatedClientForUser } from './googleAuthService.js';
 import { config } from '../config/env.js';
-import { parseIndianDate, formatIndianDate, formatISTTime, resolveCalendarWindow } from '../utils/dateUtils.js';
+import {
+  parseIndianDate,
+  formatIndianDate,
+  formatISTTime,
+  formatISTWeekday,
+  resolveCalendarWindow,
+} from '../utils/dateUtils.js';
 
 /**
  * Service to interface with Google Calendar API (v3)
@@ -49,13 +55,14 @@ export const calendarService = {
 
       // Format events for clear agent consumption
       const events = items.map((evt) => {
-        const s = new Date(evt.start.dateTime || evt.start.date);
-        const e = new Date(evt.end.dateTime || evt.end.date);
+        const s = parseIndianDate(evt.start.dateTime || evt.start.date) || new Date(evt.start.dateTime || evt.start.date);
+        const e = parseIndianDate(evt.end.dateTime || evt.end.date) || new Date(evt.end.dateTime || evt.end.date);
         const participants = evt.attendees ? evt.attendees.map((a) => a.displayName || a.email) : [];
         const startIST = formatISTTime(s);
         const endIST = formatISTTime(e);
         const timeIST = `${startIST} – ${endIST}`;
         const date = formatIndianDate(s, 'full');
+        const weekday = formatISTWeekday(s);
         const location = evt.location || 'Google Meet';
 
         return {
@@ -67,6 +74,7 @@ export const calendarService = {
           start: evt.start.dateTime || evt.start.date,
           end: evt.end.dateTime || evt.end.date,
           date,
+          weekday,
           startIST,
           endIST,
           timeIST,
@@ -85,6 +93,7 @@ export const calendarService = {
         to: e.end,
         timeIST: e.timeIST,
         date: e.date,
+        weekday: e.weekday,
         location: e.location,
         participants: e.participants,
       }));
@@ -193,13 +202,14 @@ export const calendarService = {
 
       if (conflicts.length > 0) {
         const conflictingEvents = conflicts.map((evt) => {
-          const s = new Date(evt.start.dateTime || evt.start.date);
-          const e = new Date(evt.end.dateTime || evt.end.date);
+          const s = parseIndianDate(evt.start.dateTime || evt.start.date) || new Date(evt.start.dateTime || evt.start.date);
+          const e = parseIndianDate(evt.end.dateTime || evt.end.date) || new Date(evt.end.dateTime || evt.end.date);
           const participants = evt.attendees ? evt.attendees.map((a) => a.displayName || a.email) : [];
           return {
             title: evt.summary || '(Untitled Event)',
             summary: evt.summary || '(Untitled Event)',
             date: formatIndianDate(s, 'full'),
+            weekday: formatISTWeekday(s),
             startIST: formatISTTime(s),
             endIST: formatISTTime(e),
             timeIST: `${formatISTTime(s)} – ${formatISTTime(e)}`,
@@ -251,8 +261,8 @@ export const calendarService = {
       });
 
       const created = response.data;
-      const s = new Date(created.start.dateTime || created.start.date);
-      const e = new Date(created.end.dateTime || created.end.date);
+      const s = parseIndianDate(created.start.dateTime || created.start.date) || new Date(created.start.dateTime || created.start.date);
+      const e = parseIndianDate(created.end.dateTime || created.end.date) || new Date(created.end.dateTime || created.end.date);
       const meetingLink = created.hangoutLink || created.htmlLink;
 
       const finalParticipants = created.attendees
@@ -265,6 +275,7 @@ export const calendarService = {
         title: created.summary || summary,
         summary: created.summary || summary,
         date: formatIndianDate(s, 'full'),
+        weekday: formatISTWeekday(s),
         indianDateFormat: formatIndianDate(s, 'dmy'),
         startIST: formatISTTime(s),
         endIST: formatISTTime(e),
