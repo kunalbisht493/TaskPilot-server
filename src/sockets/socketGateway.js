@@ -5,12 +5,18 @@ let ioInstance = null;
 
 const isAllowedOrigin = (origin) => {
   if (!origin) return true;
-  if (
-    origin === config.clientUrl ||
-    /^http:\/\/(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|\[::1\])(:\d+)?$/.test(origin)
-  ) {
+  const cleanOrigin = origin.replace(/\/$/, '');
+  const cleanClientUrl = (config.clientUrl || '').replace(/\/$/, '');
+  if (cleanOrigin === cleanClientUrl) return true;
+  if (/^https?:\/\/(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|\[::1\])(:\d+)?$/.test(origin)) {
     return true;
   }
+  try {
+    const originHost = new URL(origin).host;
+    const clientHost = new URL(config.clientUrl).host;
+    if (originHost === clientHost) return true;
+    if (clientHost.includes('vercel.app') && originHost.endsWith('.vercel.app')) return true;
+  } catch (_) {}
   return false;
 };
 

@@ -44,6 +44,7 @@ This document tracks every key technical and architectural decision made for the
 - [ADR-036: Socket.io Room Reconnection De-Duplication & React StrictMode Lifecycle Guard](#adr-036-socketio-room-reconnection-de-duplication--react-strictmode-lifecycle-guard)
 - [ADR-037: Google Calendar Full-Day Availability Window Resolution (`00:00:00` to `23:59:59.999 IST`)](#adr-037-google-calendar-full-day-availability-window-resolution-000000-to-235959999-ist)
 - [ADR-038: Timezone-Resilient Temporal Reasoning & Grounded Dynamic Weekday Extraction](#adr-038-timezone-resilient-temporal-reasoning--grounded-dynamic-weekday-extraction)
+- [ADR-039: Removal of Development Authentication Bypasses & Production CORS/Cookie Hardening](#adr-039-removal-of-development-authentication-bypasses--production-corscookie-hardening)
 - [Key Engineering Highlights & Resume Impact (Ready-to-Use Resume Points)](#key-engineering-highlights--resume-impact-ready-to-use-resume-points)
 
 ---
@@ -1002,6 +1003,25 @@ This document tracks every key technical and architectural decision made for the
   1. Eliminates LLM weekday hallucinations by providing grounded calendar data in tool observations.
   2. Eliminates date vs. weekday mismatches near midnight across server timezones.
   3. Guarantees consistent weekday mapping: Nov 2 = Monday, Nov 3 = Tuesday, Nov 4 = Wednesday, Nov 5 = Thursday, Nov 6 = Friday.
+
+---
+
+## ADR-039: Removal of Development Authentication Bypasses & Production CORS/Cookie Hardening
+
+- **Status:** Accepted
+- **Date:** 2026-11-03
+- **Context:**
+  During early development, a mock authentication route (`POST /api/auth/dev-login`) was created to allow local testing without Google OAuth credentials. In preparing TaskPilot for public production deployment, development bypass endpoints expose potential security risks, bypass real user isolation in MongoDB, and prevent proper verification of Google Calendar tokens. Furthermore, cross-origin deployments (e.g. Vercel client + Render/Railway server) require `SameSite=None; Secure` cookie attributes and flexible CORS origin matching.
+
+- **Decision:**
+  1. **Complete Removal of Dev-Login Endpoint:** Excised `POST /api/auth/dev-login` from `authRoutes.js` and server documentation in `server.js`. All authentication must proceed through the official Google OAuth 2.0 flow (`GET /api/auth/google`).
+  2. **Production-Grade Cookie Configuration:** Configured session cookies with `sameSite: isProd ? 'none' : 'lax'` and `secure: isProd`, ensuring cross-domain authentication persistence between independent CDN and backend deployments.
+  3. **Resilient CORS & WebSocket Origin Matching:** Enhanced origin verification across Express and Socket.io to dynamically validate HTTPS schemes, normalize trailing slashes, and safely support Vercel preview environments without wildcard security risks.
+
+- **Why Taken:**
+  1. Enforces strict zero-trust authentication in production environments.
+  2. Eliminates insecure mock identity creation and token spoofing vectors.
+  3. Ensures uninterrupted cookie and WebSocket connectivity across split cloud infrastructure.
 
 ---
 

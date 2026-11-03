@@ -10,12 +10,15 @@ const router = express.Router();
 /**
  * Cookie options helper for session token
  */
-const getCookieOptions = () => ({
-  httpOnly: true,
-  secure: process.env.NODE_ENV === 'production',
-  sameSite: 'lax',
-  maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-});
+const getCookieOptions = () => {
+  const isProd = process.env.NODE_ENV === 'production';
+  return {
+    httpOnly: true,
+    secure: isProd,
+    sameSite: isProd ? 'none' : 'lax',
+    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+  };
+};
 
 /**
  * Safely resolves the target frontend redirect URL from request or OAuth state.
@@ -25,10 +28,12 @@ const getSafeRedirectUrl = (rawTarget) => {
   if (!rawTarget) return config.clientUrl;
   try {
     const parsed = new URL(rawTarget);
+    const configuredOrigin = new URL(config.clientUrl).origin;
     if (
       parsed.hostname === 'localhost' ||
       parsed.hostname === '127.0.0.1' ||
-      parsed.origin === new URL(config.clientUrl).origin
+      parsed.origin === configuredOrigin ||
+      (configuredOrigin.includes('vercel.app') && parsed.hostname.endsWith('.vercel.app'))
     ) {
       return parsed.origin;
     }
@@ -192,57 +197,17 @@ router.get('/me', optionalAuth, async (req, res) => {
  * Clears the session cookie
  */
 router.post('/logout', (req, res) => {
+  const isProd = process.env.NODE_ENV === 'production';
   res.clearCookie('token', {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
+    secure: isProd,
+    sameSite: isProd ? 'none' : 'lax',
   });
 
   res.json({
     success: true,
     message: 'Logged out successfully.',
   });
-});
-
-/**
- * POST /api/auth/dev-login
- * Development helper endpoint: creates or logs in a mock user without Google OAuth
- */
-router.post('/dev-login', async (req, res, next) => {
-  try {
-    const email = (req.body.email || 'developer@taskpilot.local').toLowerCase();
-    const name = req.body.name || 'TaskPilot Developer';
-
-    let user = await User.findOne({ email });
-    if (!user) {
-      user = await User.create({
-        name,
-        email,
-        googleId: 'dev_mock_id',
-      });
-    }
-
-    const token = jwt.sign(
-      { id: user._id, email: user.email },
-      config.jwtSecret,
-      { expiresIn: config.jwtExpiresIn }
-    );
-
-    res.cookie('token', token, getCookieOptions());
-
-    res.json({
-      success: true,
-      token,
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        hasGoogleCalendar: Boolean(user.googleTokens?.refreshToken),
-      },
-    });
-  } catch (err) {
-    next(err);
-  }
 });
 
 export default router;

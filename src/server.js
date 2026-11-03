@@ -18,12 +18,18 @@ const server = http.createServer(app);
 // CORS configuration: dynamically allow localhost, 127.0.0.1, clientUrl, and local LAN IPs
 const isAllowedOrigin = (origin) => {
   if (!origin) return true;
-  if (
-    origin === config.clientUrl ||
-    /^http:\/\/(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|\[::1\])(:\d+)?$/.test(origin)
-  ) {
+  const cleanOrigin = origin.replace(/\/$/, '');
+  const cleanClientUrl = (config.clientUrl || '').replace(/\/$/, '');
+  if (cleanOrigin === cleanClientUrl) return true;
+  if (/^https?:\/\/(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|\[::1\])(:\d+)?$/.test(origin)) {
     return true;
   }
+  try {
+    const originHost = new URL(origin).host;
+    const clientHost = new URL(config.clientUrl).host;
+    if (originHost === clientHost) return true;
+    if (clientHost.includes('vercel.app') && originHost.endsWith('.vercel.app')) return true;
+  } catch (_) {}
   return false;
 };
 
@@ -57,7 +63,7 @@ app.use('/api/audit-logs', auditRoutes);
 app.get('/', (req, res) => {
   res.json({
     name: 'TaskPilot API',
-    description: 'Autonomous MERN-based AI Agent with Hand-Built ReAct Loop',
+    description: 'Autonomous MERN-based AI Agent with ReAct Loop',
     endpoints: {
       health: '/api/health',
       auth: {
@@ -65,7 +71,6 @@ app.get('/', (req, res) => {
         callback: '/api/auth/google/callback',
         me: '/api/auth/me',
         logout: 'POST /api/auth/logout',
-        devLogin: 'POST /api/auth/dev-login',
       },
       tasks: '/api/tasks',
       auditLogs: {
@@ -92,9 +97,9 @@ async function startServer() {
 
   server.listen(config.port, () => {
     console.log(`\n=================================================`);
-    console.log(`🚀 TaskPilot Server running on http://localhost:${config.port}`);
-    console.log(`📡 WebSocket Gateway ready for live reasoning stream`);
-    console.log(`🧠 Active LLM Provider: ${config.defaultProvider}`);
+    console.log(`TaskPilot Server running on http://localhost:${config.port}`);
+    console.log(`WebSocket Gateway ready for live reasoning stream`);
+    console.log(`Active LLM Provider: ${config.defaultProvider}`);
     console.log(`=================================================\n`);
   });
 }
