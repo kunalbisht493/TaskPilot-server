@@ -3,6 +3,7 @@ dotenv.config();
 
 export const config = {
   port: parseInt(process.env.PORT || '5000', 10),
+  serverUrl: process.env.SERVER_URL || process.env.RENDER_EXTERNAL_URL || (process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : ''),
   clientUrl: process.env.CLIENT_URL || 'http://localhost:5174',
   mongoUri: process.env.MONGODB_URI || 'mongodb://localhost:27017/taskpilot',
   jwtSecret: process.env.JWT_SECRET || 'dev_jwt_secret_taskpilot_default',

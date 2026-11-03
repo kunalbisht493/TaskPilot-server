@@ -52,6 +52,20 @@ app.use(cookieParser());
 // Initialize WebSockets
 initializeSocket(server);
 
+// Standalone lightweight keep-alive endpoints for external cron pingers (Cron-job.org, UptimeRobot)
+app.all(['/health', '/cron', '/healthz'], (req, res) => {
+  if (req.method !== 'GET' && req.method !== 'HEAD') {
+    return res.status(405).json({ success: false, error: 'Method Not Allowed' });
+  }
+  res.status(200).json({
+    status: 'ok',
+    service: 'taskpilot-server',
+    purpose: 'cron-keep-alive',
+    timestamp: new Date().toISOString(),
+    uptimeSeconds: Math.floor(process.uptime()),
+  });
+});
+
 // API Routes
 app.use('/api', healthRoutes);
 app.use('/api/auth', authRoutes);
@@ -65,7 +79,10 @@ app.get('/', (req, res) => {
     name: 'TaskPilot API',
     description: 'Autonomous MERN-based AI Agent with ReAct Loop',
     endpoints: {
-      health: '/api/health',
+      health: {
+        status: '/api/health',
+        cron: '/api/health/cron',
+      },
       auth: {
         google: '/api/auth/google',
         callback: '/api/auth/google/callback',
@@ -96,10 +113,20 @@ async function startServer() {
   await connectDB();
 
   server.listen(config.port, () => {
+    const isProd = process.env.NODE_ENV === 'production';
+    const serverUrl = config.serverUrl || (process.env.RENDER_EXTERNAL_URL ? process.env.RENDER_EXTERNAL_URL : null);
+
     console.log(`\n=================================================`);
-    console.log(`TaskPilot Server running on http://localhost:${config.port}`);
+    if (isProd && serverUrl) {
+      console.log(`TaskPilot Server running on: ${serverUrl}`);
+    } else if (isProd) {
+      console.log(`TaskPilot Server running on: Port ${config.port} (Production)`);
+    } else {
+      console.log(`TaskPilot Server running on http://localhost:${config.port}`);
+    }
     console.log(`WebSocket Gateway ready for live reasoning stream`);
     console.log(`Active LLM Provider: ${config.defaultProvider}`);
+    console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
     console.log(`=================================================\n`);
   });
 }
