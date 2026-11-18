@@ -6,7 +6,7 @@ import { config } from './config/env.js';
 import { connectDB } from './config/db.js';
 import { initializeSocket } from './sockets/socketGateway.js';
 import { errorHandler } from './middleware/errorHandler.js';
-import healthRoutes from './routes/healthRoutes.js';
+import healthRoutes, { healthHandler } from './routes/healthRoutes.js';
 import agentRoutes from './routes/agentRoutes.js';
 import authRoutes from './routes/authRoutes.js';
 import taskRoutes from './routes/taskRoutes.js';
@@ -52,19 +52,8 @@ app.use(cookieParser());
 // Initialize WebSockets
 initializeSocket(server);
 
-// Standalone lightweight keep-alive endpoints for external cron pingers (Cron-job.org, UptimeRobot)
-app.all(['/health', '/cron', '/healthz', '/health/cron', '/ping'], (req, res) => {
-  if (req.method !== 'GET' && req.method !== 'HEAD') {
-    return res.status(405).json({ success: false, error: 'Method Not Allowed' });
-  }
-  res.status(200).json({
-    status: 'ok',
-    service: 'taskpilot-server',
-    purpose: 'cron-keep-alive',
-    timestamp: new Date().toISOString(),
-    uptimeSeconds: Math.floor(process.uptime()),
-  });
-});
+// Unified health & keep-alive endpoint (pings MongoDB Atlas and keeps server warm)
+app.all('/health', healthHandler);
 
 // API Routes
 app.use('/api', healthRoutes);
@@ -79,10 +68,7 @@ app.get('/', (req, res) => {
     name: 'TaskPilot API',
     description: 'Autonomous MERN-based AI Agent with ReAct Loop',
     endpoints: {
-      health: {
-        status: '/api/health',
-        cron: '/api/health/cron',
-      },
+      health: '/health',
       auth: {
         google: '/api/auth/google',
         callback: '/api/auth/google/callback',
