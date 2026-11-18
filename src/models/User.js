@@ -25,6 +25,10 @@ const userSchema = new mongoose.Schema(
     avatar: {
       type: String,
     },
+    isDemoUser: {
+      type: Boolean,
+      default: false,
+    },
     googleTokens: {
       accessToken: String,
       refreshToken: String,

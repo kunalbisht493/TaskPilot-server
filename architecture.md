@@ -90,10 +90,11 @@ This is the heart of the project, and the only "AI" logic you write by hand (no 
 ### 4.2 Backend (Node.js + Express)
 | Module | Responsibility |
 |---|---|
-| `authRoutes` | JWT issuing, Google OAuth 2.0 callback handling, HttpOnly cookie sessions |
+| `authRoutes` | JWT issuing, Google OAuth 2.0 callback handling, demo evaluator login (`/api/auth/demo-login`), and HttpOnly cookie sessions |
 | `agentController` | Receives request, kicks off the orchestrator loop |
 | `orchestrator.js` | Hand-built ReAct loop; calls LLM, manages step state, hardcoded max-step cap (e.g. 6) |
-| `tools/` | One function per tool — **only 2 tools**: `checkCalendarAvailability`, `createCalendarEvent`, plus `createTask`/`completeTask` — each with a strict input schema |
+| `tools/` | Tools for calendar scheduling and task management backed by Google APIs or in-memory evaluator sandbox, with strict Zod input schemas |
+| `calendarService` | Google Calendar API v3 interface and in-memory calendar sandbox with double-booking and overlap avoidance algorithms |
 | `confirmationService` | Tracks pending write-actions awaiting user approval |
 | `auditLogger` | Writes every tool call (input, output, timestamp, status) to MongoDB |
 | `socketGateway` | Emits reasoning steps to the connected client in real time |
@@ -179,6 +180,8 @@ sequenceDiagram
 3. **Scoped OAuth tokens** — request only the minimum Calendar scope needed.
 4. **Basic audit log** — every tool call recorded with input/output/timestamp in MongoDB, shown in a simple table.
 5. **Tool input validation** — schema-check every LLM-proposed function call before execution (never trust LLM output directly).
+6. **Strict user data isolation** — queries for tasks and audit logs filter strictly by the active session `userId`, preventing cross-account data leakage.
+7. **Evaluator Sandbox** — pre-seeded in-memory calendar provider allowing full evaluation of conflict checking and write confirmation guardrails without external OAuth verification barriers.
 
 *(Skipped: Redis-based rate limiting, retry/backoff logic, encrypted token storage — note these as "future production considerations" in your README rather than building them.)*
 

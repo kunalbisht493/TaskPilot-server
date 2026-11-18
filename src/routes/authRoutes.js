@@ -2,6 +2,7 @@ import express from 'express';
 import jwt from 'jsonwebtoken';
 import { config } from '../config/env.js';
 import { User } from '../models/User.js';
+import { Task } from '../models/Task.js';
 import { getAuthUrl, getTokensFromCode, getUserProfile } from '../services/googleAuthService.js';
 import { requireAuth, optionalAuth } from '../middleware/authMiddleware.js';
 
@@ -176,7 +177,7 @@ router.get('/me', optionalAuth, async (req, res) => {
   }
 
   const hasGoogleCalendar = Boolean(
-    req.user.googleTokens?.refreshToken || req.user.googleTokens?.accessToken
+    req.user.isDemoUser || req.user.googleTokens?.refreshToken || req.user.googleTokens?.accessToken
   );
 
   res.json({
@@ -186,10 +187,97 @@ router.get('/me', optionalAuth, async (req, res) => {
       name: req.user.name,
       email: req.user.email,
       avatar: req.user.avatar,
+      isDemoUser: Boolean(req.user.isDemoUser),
       hasGoogleCalendar,
       createdAt: req.user.createdAt,
     },
   });
+});
+
+/**
+ * POST /api/auth/demo-login
+ * Creates or logs in a pre-configured Recruiter / Evaluator user without Google OAuth.
+ * Automatically provisions initial demo tasks if empty.
+ */
+router.post(['/demo-login', '/dev-login'], async (req, res, next) => {
+  try {
+    const email = (req.body.email || 'recruiter@taskpilot.demo').toLowerCase();
+    const name = req.body.name || 'Recruiter Evaluator';
+
+    let user = await User.findOne({ email });
+    if (!user) {
+      user = await User.create({
+        name,
+        email,
+        googleId: 'demo_recruiter_id',
+        isDemoUser: true,
+        avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=TaskPilotRecruiter',
+      });
+    } else if (!user.isDemoUser) {
+      user.isDemoUser = true;
+      await user.save();
+    }
+
+    // Seed realistic starter tasks if user has none
+    const existingTasksCount = await Task.countDocuments({ userId: user._id });
+    if (existingTasksCount === 0) {
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      const friday = new Date();
+      friday.setDate(friday.getDate() + 3);
+
+      await Task.create([
+        {
+          userId: user._id,
+          title: 'Review Q4 Product Roadmap & Architecture',
+          description: 'Assess system requirements and ReAct loop guardrails',
+          priority: 'high',
+          status: 'pending',
+          dueDate: tomorrow,
+        },
+        {
+          userId: user._id,
+          title: 'Prepare candidate technical interview rubric',
+          description: 'Draft scoring guidelines for agentic systems engineering',
+          priority: 'medium',
+          status: 'pending',
+          dueDate: friday,
+        },
+        {
+          userId: user._id,
+          title: 'Set up MongoDB Atlas connection string',
+          description: 'Verified database configuration and TTL retention policy',
+          priority: 'low',
+          status: 'completed',
+          completedAt: new Date(),
+        },
+      ]);
+    }
+
+    const token = jwt.sign(
+      { id: user._id, email: user.email },
+      config.jwtSecret,
+      { expiresIn: config.jwtExpiresIn }
+    );
+
+    res.cookie('token', token, getCookieOptions());
+
+    res.json({
+      success: true,
+      token,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        avatar: user.avatar,
+        isDemoUser: true,
+        hasGoogleCalendar: true,
+        createdAt: user.createdAt,
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
 });
 
 /**

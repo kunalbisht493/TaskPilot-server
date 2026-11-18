@@ -9,6 +9,49 @@ import {
   resolveCalendarWindow,
 } from '../utils/dateUtils.js';
 
+// In-memory demo sandbox events store keyed by userId
+const demoEventsStore = new Map();
+
+function getDemoEventsForUser(userId) {
+  const key = String(userId || 'default_demo');
+  if (!demoEventsStore.has(key)) {
+    const now = new Date();
+    // Default standup today 10:00 - 10:30 IST
+    const todayStandupStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 10, 0, 0);
+    const todayStandupEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 10, 30, 0);
+
+    // Architecture review tomorrow 14:00 - 15:00 IST
+    const tmrwStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 14, 0, 0);
+    const tmrwEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 15, 0, 0);
+
+    demoEventsStore.set(key, [
+      {
+        id: 'demo_evt_standup',
+        summary: 'Engineering Sync & Standup',
+        description: 'Daily team sync and sprint progress check',
+        location: 'Google Meet',
+        start: { dateTime: todayStandupStart.toISOString() },
+        end: { dateTime: todayStandupEnd.toISOString() },
+        attendees: [{ displayName: 'Team Lead' }, { email: 'lead@company.com' }],
+        status: 'confirmed',
+        htmlLink: 'https://meet.google.com/demo-eval-call',
+      },
+      {
+        id: 'demo_evt_arch',
+        summary: 'Architecture Review with Principal Eng',
+        description: 'Review system design, MongoDB TTL, and ReAct loop guardrails',
+        location: 'Conference Room Alpha',
+        start: { dateTime: tmrwStart.toISOString() },
+        end: { dateTime: tmrwEnd.toISOString() },
+        attendees: [{ displayName: 'Sarah Connor' }],
+        status: 'confirmed',
+        htmlLink: 'https://meet.google.com/demo-eval-call',
+      },
+    ]);
+  }
+  return demoEventsStore.get(key);
+}
+
 /**
  * Service to interface with Google Calendar API (v3)
  */
@@ -23,7 +66,7 @@ export const calendarService = {
    * @param {string} [params.timeZone] - Optional timezone string (defaults to 'Asia/Kolkata')
    */
   async checkAvailability({ user, timeMin, timeMax, timeZone = 'Asia/Kolkata' }) {
-    if (!user || (!user.googleTokens?.accessToken && !user.googleTokens?.refreshToken)) {
+    if (!user || (!user.isDemoUser && !user.googleTokens?.accessToken && !user.googleTokens?.refreshToken)) {
       return {
         isConnected: false,
         calendarRetrieved: false,
@@ -31,6 +74,90 @@ export const calendarService = {
         totalEvents: null,
         events: [],
         message: 'Google Calendar is not connected. User must sign in via Google OAuth to access calendar data.',
+      };
+    }
+
+    // Demo / Sandbox Calendar Evaluator Mode
+    if (user.isDemoUser || user.email === 'recruiter@taskpilot.demo') {
+      const { isoTimeMin, isoTimeMax } = resolveCalendarWindow(timeMin, timeMax, timeZone);
+      const minDate = new Date(isoTimeMin);
+      const maxDate = new Date(isoTimeMax);
+      const allDemo = getDemoEventsForUser(user._id);
+
+      const items = allDemo.filter((evt) => {
+        const s = new Date(evt.start.dateTime || evt.start.date);
+        const e = new Date(evt.end.dateTime || evt.end.date);
+        return s < maxDate && e > minDate;
+      });
+
+      const events = items.map((evt) => {
+        const s = parseIndianDate(evt.start.dateTime || evt.start.date) || new Date(evt.start.dateTime || evt.start.date);
+        const e = parseIndianDate(evt.end.dateTime || evt.end.date) || new Date(evt.end.dateTime || evt.end.date);
+        const participants = evt.attendees ? evt.attendees.map((a) => a.displayName || a.email) : [];
+        const startIST = formatISTTime(s);
+        const endIST = formatISTTime(e);
+        const timeIST = `${startIST} – ${endIST}`;
+        const date = formatIndianDate(s, 'full');
+        const weekday = formatISTWeekday(s);
+        const location = evt.location || 'Google Meet';
+
+        return {
+          id: evt.id,
+          title: evt.summary || '(No Title)',
+          summary: evt.summary || '(No Title)',
+          description: evt.description || '',
+          location,
+          start: evt.start.dateTime || evt.start.date,
+          end: evt.end.dateTime || evt.end.date,
+          date,
+          weekday,
+          startIST,
+          endIST,
+          timeIST,
+          participants,
+          attendees: participants,
+          isAllDay: !evt.start.dateTime,
+          status: evt.status,
+          link: evt.htmlLink || 'https://meet.google.com/demo-eval-call',
+        };
+      });
+
+      const busySlots = events.map((e) => ({
+        title: e.summary,
+        from: e.start,
+        to: e.end,
+        timeIST: e.timeIST,
+        date: e.date,
+        weekday: e.weekday,
+        location: e.location,
+        participants: e.participants,
+      }));
+
+      const conflictDescriptions = events
+        .map((e) => {
+          const withWho = e.participants.length > 0 ? ` with ${e.participants.join(', ')}` : '';
+          const loc = e.location ? ` at ${e.location}` : '';
+          return `"${e.summary}" on ${e.date} (${e.timeIST})${withWho}${loc}`;
+        })
+        .join('; ');
+
+      return {
+        isConnected: true,
+        calendarRetrieved: true,
+        isDemoSandbox: true,
+        timeWindow: {
+          start: isoTimeMin,
+          end: isoTimeMax,
+          timeZone: timeZone || 'Asia/Kolkata',
+        },
+        hasConflicts: events.length > 0,
+        totalEvents: events.length,
+        events,
+        busySlots,
+        summary:
+          events.length === 0
+            ? 'The user is completely free with no scheduled events during this window.'
+            : `The user has ${events.length} event(s) scheduled during this window: ${conflictDescriptions}.`,
       };
     }
 
@@ -164,10 +291,101 @@ export const calendarService = {
    * @param {Array<string>} [params.attendees] - Array of attendee emails or names
    */
   async createEvent({ user, summary, startTime, endTime, description = '', location = '', timeZone = 'Asia/Kolkata', attendees = [] }) {
-    if (!user || (!user.googleTokens?.accessToken && !user.googleTokens?.refreshToken)) {
+    if (!user || (!user.isDemoUser && !user.googleTokens?.accessToken && !user.googleTokens?.refreshToken)) {
       return {
         success: false,
         error: 'Google Calendar is not connected. User must sign in via Google OAuth to create events.',
+      };
+    }
+
+    // Demo / Sandbox Calendar Evaluator Mode
+    if (user.isDemoUser || user.email === 'recruiter@taskpilot.demo') {
+      const startDate = parseIndianDate(startTime) || new Date(startTime);
+      const endDate = parseIndianDate(endTime) || new Date(endTime);
+      if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+        throw new Error(`Invalid meeting start or end time: "${startTime}" - "${endTime}"`);
+      }
+
+      const allDemo = getDemoEventsForUser(user._id);
+      // Conflict check
+      const conflicts = allDemo.filter((item) => {
+        const itemStart = new Date(item.start.dateTime || item.start.date);
+        const itemEnd = new Date(item.end.dateTime || item.end.date);
+        return itemStart < endDate && itemEnd > startDate;
+      });
+
+      if (conflicts.length > 0) {
+        const conflictingEvents = conflicts.map((evt) => {
+          const s = parseIndianDate(evt.start.dateTime || evt.start.date) || new Date(evt.start.dateTime || evt.start.date);
+          const e = parseIndianDate(evt.end.dateTime || evt.end.date) || new Date(evt.end.dateTime || evt.end.date);
+          const participants = evt.attendees ? evt.attendees.map((a) => a.displayName || a.email) : [];
+          return {
+            title: evt.summary || '(Untitled Event)',
+            summary: evt.summary || '(Untitled Event)',
+            date: formatIndianDate(s, 'full'),
+            weekday: formatISTWeekday(s),
+            startIST: formatISTTime(s),
+            endIST: formatISTTime(e),
+            timeIST: `${formatISTTime(s)} – ${formatISTTime(e)}`,
+            participants,
+            location: evt.location || 'Online / Google Meet',
+            link: evt.htmlLink || 'https://meet.google.com/demo-eval-call',
+          };
+        });
+
+        const primaryConflict = conflictingEvents[0];
+        const participantStr = primaryConflict.participants.length > 0
+          ? ` with ${primaryConflict.participants.join(', ')}`
+          : '';
+
+        return {
+          success: false,
+          overlap: true,
+          conflict: true,
+          message: `Meeting overlap detected: A meeting is already scheduled on ${primaryConflict.date} from ${primaryConflict.timeIST} titled "${primaryConflict.title}"${participantStr} at ${primaryConflict.location}. Double-booking prevented.`,
+          conflictingEvents,
+        };
+      }
+
+      const defaultLocation = location || 'Google Meet';
+      const newEvent = {
+        id: 'demo_evt_' + Date.now(),
+        summary,
+        description: description || '',
+        location: defaultLocation,
+        start: { dateTime: startDate.toISOString() },
+        end: { dateTime: endDate.toISOString() },
+        attendees: (Array.isArray(attendees) ? attendees : []).map((item) => {
+          const str = String(item).trim();
+          return str.includes('@') ? { email: str } : { displayName: str };
+        }),
+        status: 'confirmed',
+        htmlLink: 'https://meet.google.com/demo-eval-call',
+      };
+      allDemo.push(newEvent);
+
+      const finalParticipants = newEvent.attendees.map((a) => a.displayName || a.email);
+
+      return {
+        success: true,
+        eventId: newEvent.id,
+        title: newEvent.summary,
+        summary: newEvent.summary,
+        date: formatIndianDate(startDate, 'full'),
+        weekday: formatISTWeekday(startDate),
+        indianDateFormat: formatIndianDate(startDate, 'dmy'),
+        startIST: formatISTTime(startDate),
+        endIST: formatISTTime(endDate),
+        timeIST: `${formatISTTime(startDate)} – ${formatISTTime(endDate)}`,
+        location: newEvent.location,
+        participants: finalParticipants,
+        withWhom: finalParticipants.length > 0 ? finalParticipants.join(', ') : 'Not specified',
+        htmlLink: newEvent.htmlLink,
+        hangoutLink: newEvent.htmlLink,
+        meetingLink: newEvent.htmlLink,
+        link: newEvent.htmlLink,
+        status: newEvent.status,
+        isDemoSandbox: true,
       };
     }
 

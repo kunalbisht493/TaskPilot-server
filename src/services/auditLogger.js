@@ -61,9 +61,18 @@ export async function getActionLogs({
   const skip = (pageNum - 1) * limitNum;
 
   if (mongoose.connection.readyState === 1) {
-    const query = {};
+    if (!userId) {
+      return {
+        total: 0,
+        page: pageNum,
+        limit: limitNum,
+        totalPages: 1,
+        logs: [],
+      };
+    }
+
+    const query = { userId };
     if (conversationId) query.conversationId = conversationId;
-    if (userId) query.userId = userId;
     if (tool) query.tool = tool;
 
     const [logs, total] = await Promise.all([
@@ -100,7 +109,18 @@ export async function getActionLogs({
  */
 export async function getActionStats({ userId } = {}) {
   if (mongoose.connection.readyState === 1) {
-    const match = userId ? { userId: new mongoose.Types.ObjectId(userId) } : {};
+    if (!userId) {
+      return {
+        totalActions: 0,
+        successfulActions: 0,
+        failedActions: 0,
+        confirmedActions: 0,
+        successRatePercent: 100,
+        toolBreakdown: [],
+      };
+    }
+
+    const match = { userId: new mongoose.Types.ObjectId(userId) };
     const totalLogs = await ActionLog.countDocuments(match);
     const successLogs = await ActionLog.countDocuments({ ...match, success: true });
     const confirmedLogs = await ActionLog.countDocuments({ ...match, confirmedByUser: true });

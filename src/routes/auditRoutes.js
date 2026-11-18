@@ -14,6 +14,17 @@ router.get('/', optionalAuth, async (req, res, next) => {
     const { conversationId, tool, page, limit } = req.query;
     const userId = req.user?._id;
 
+    if (!userId) {
+      return res.json({
+        success: true,
+        total: 0,
+        page: 1,
+        limit: 50,
+        totalPages: 1,
+        logs: [],
+      });
+    }
+
     const data = await getActionLogs({
       conversationId,
       userId,
@@ -38,6 +49,21 @@ router.get('/', optionalAuth, async (req, res, next) => {
 router.get('/stats', optionalAuth, async (req, res, next) => {
   try {
     const userId = req.user?._id;
+
+    if (!userId) {
+      return res.json({
+        success: true,
+        stats: {
+          totalActions: 0,
+          successfulActions: 0,
+          failedActions: 0,
+          confirmedActions: 0,
+          successRatePercent: 100,
+          toolBreakdown: [],
+        },
+      });
+    }
+
     const stats = await getActionStats({ userId });
 
     res.json({

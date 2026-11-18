@@ -45,6 +45,8 @@ This document tracks every key technical and architectural decision made for the
 - [ADR-037: Google Calendar Full-Day Availability Window Resolution (`00:00:00` to `23:59:59.999 IST`)](#adr-037-google-calendar-full-day-availability-window-resolution-000000-to-235959999-ist)
 - [ADR-038: Timezone-Resilient Temporal Reasoning & Grounded Dynamic Weekday Extraction](#adr-038-timezone-resilient-temporal-reasoning--grounded-dynamic-weekday-extraction)
 - [ADR-039: Removal of Development Authentication Bypasses & Production CORS/Cookie Hardening](#adr-039-removal-of-development-authentication-bypasses--production-corscookie-hardening)
+- [ADR-040: Recruiter Evaluator Sandbox, Demo Authentication & In-Memory Calendar Provider](#adr-040-recruiter-evaluator-sandbox-demo-authentication--in-memory-calendar-provider)
+- [ADR-041: Multi-Account Isolation & Strict User-Scoped Task/Audit Querying](#adr-041-multi-account-isolation--strict-user-scoped-taskaudit-querying)
 - [Key Engineering Highlights & Resume Impact (Ready-to-Use Resume Points)](#key-engineering-highlights--resume-impact-ready-to-use-resume-points)
 
 ---
@@ -1022,6 +1024,44 @@ This document tracks every key technical and architectural decision made for the
   1. Enforces strict zero-trust authentication in production environments.
   2. Eliminates insecure mock identity creation and token spoofing vectors.
   3. Ensures uninterrupted cookie and WebSocket connectivity across split cloud infrastructure.
+
+---
+
+## ADR-040: Recruiter Evaluator Sandbox, Demo Authentication & In-Memory Calendar Provider
+
+- **Status:** Accepted
+- **Date:** 2026-11-18
+- **Context:**
+  Google Cloud OAuth verification for sensitive scopes (`https://www.googleapis.com/auth/calendar`) introduces steep evaluation friction:
+  1. In Testing mode, non-allowlisted evaluators (recruiters, hiring managers) receive `403: access_denied`.
+  2. In unverified production mode, Google displays an alarming "Google hasn't verified this app" security barrier.
+  External hiring managers and reviewers evaluating a candidate's portfolio expect immediate 1-click evaluation without sharing personal credentials or clicking through security warnings.
+
+- **Decision:**
+  1. **Dedicated Demo Auth Endpoint (`POST /api/auth/demo-login`):** Provisions or retrieves a designated evaluator user (`recruiter@taskpilot.demo` with `isDemoUser: true`), issues standard JWT HttpOnly session cookies, and auto-provisions initial starter tasks in MongoDB if empty.
+  2. **In-Memory Calendar Sandbox (`calendarService.js`):** Intercepts `checkAvailability` and `createEvent` when `user.isDemoUser` is true. Pre-seeds realistic relative schedule items (daily standup and architecture review) and enforces exact overlap checking (`itemStart < endDate && itemEnd > startDate`), conflict detection, and meeting link generation.
+  3. **Full Safety & Agent Parity:** The ReAct orchestrator invokes the exact same tool definitions (`check_calendar_availability`, `create_calendar_event`), halting execution for Human-in-the-Loop confirmations and streaming audit logs to MongoDB.
+
+- **Why Taken:**
+  1. Grants evaluators instant access to test the complete ReAct loop, task planner, and HITL confirmation guardrails in under 5 seconds.
+  2. Eliminates Google OAuth verification barriers while preserving 100% of the agent's reasoning and safety mechanics.
+
+---
+
+## ADR-041: Multi-Account Isolation & Strict User-Scoped Task/Audit Querying
+
+- **Status:** Accepted
+- **Date:** 2026-11-18
+- **Context:**
+  `GET /api/tasks` and `GET /api/audit-logs` previously matched unowned tasks (`{ userId: null }`) or all documents when unauthenticated. This allowed demo tasks or previous activities to leak across distinct accounts when users switched from Demo mode to personal Google OAuth accounts.
+
+- **Decision:**
+  1. **Unauthenticated Query Guard:** If `req.user?._id` is absent, `/api/tasks`, `/api/audit-logs`, and `/api/audit-logs/stats` immediately return empty datasets (`[]` and zero metrics).
+  2. **Strict User Scoping:** All database queries filter strictly by `{ userId: req.user._id }` rather than matching `{ userId: null }`.
+
+- **Why Taken:**
+  1. Guarantees zero cross-account data leakage between evaluator demo sessions and authenticated Google users.
+  2. Enforces strict multitenancy data isolation.
 
 ---
 

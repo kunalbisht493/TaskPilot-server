@@ -128,10 +128,10 @@ export const taskService = {
    */
   async listTasks({ userId, status = 'all' }) {
     if (mongoose.connection.readyState === 1) {
-      const query = {};
-      if (userId) {
-        query.$or = [{ userId }, { userId: null }];
+      if (!userId) {
+        return [];
       }
+      const query = { userId };
       if (status && status !== 'all') query.status = status;
 
       const tasks = await Task.find(query).sort({ createdAt: -1 }).limit(50);

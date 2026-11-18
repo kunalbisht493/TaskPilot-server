@@ -13,6 +13,15 @@ router.get('/', optionalAuth, async (req, res, next) => {
   try {
     const { status } = req.query;
     const userId = req.user?._id;
+
+    if (!userId) {
+      return res.json({
+        success: true,
+        count: 0,
+        tasks: [],
+      });
+    }
+
     const tasks = await taskService.listTasks({ userId, status });
 
     res.json({

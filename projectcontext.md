@@ -25,6 +25,7 @@ This is a solo, resume-focused build — scoped to be genuinely finishable in ~8
 - Live reasoning stream to the UI via Socket.io
 - Basic audit log (MongoDB collection + simple table UI) — every tool call recorded
 - JWT (HttpOnly cookies) + Google OAuth 2.0 for auth and Calendar access
+- Recruiter Evaluator Sandbox & 1-Click Demo mode (`/api/auth/demo-login`) with mock calendar conflict checking, double-booking prevention, and initial task provisioning for instant review without Google verification screens
 
 **Explicitly out of scope (cut on purpose — be ready to explain why if asked):**
 - Gmail integration (send email) — one more OAuth scope + integration for marginal payoff over what Calendar already proves
