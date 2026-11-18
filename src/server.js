@@ -66,7 +66,7 @@ app.use('/api/audit-logs', auditRoutes);
 app.get('/', (req, res) => {
   res.json({
     name: 'TaskPilot API',
-    description: 'Autonomous MERN-based AI Agent with ReAct Loop',
+    description: 'Autonomous AI Agent',
     endpoints: {
       health: '/health',
       auth: {
