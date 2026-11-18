@@ -53,7 +53,7 @@ app.use(cookieParser());
 initializeSocket(server);
 
 // Standalone lightweight keep-alive endpoints for external cron pingers (Cron-job.org, UptimeRobot)
-app.all(['/health', '/cron', '/healthz'], (req, res) => {
+app.all(['/health', '/cron', '/healthz', '/health/cron', '/ping'], (req, res) => {
   if (req.method !== 'GET' && req.method !== 'HEAD') {
     return res.status(405).json({ success: false, error: 'Method Not Allowed' });
   }

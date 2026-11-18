@@ -10,7 +10,7 @@ const router = express.Router();
  * Ultra-lightweight keep-alive endpoint designed for external cron services
  * (e.g. Cron-job.org, UptimeRobot, BetterUptime) to keep free-tier instances warm.
  */
-router.all(['/health/cron', '/cron'], (req, res) => {
+router.all(['/health/cron', '/cron', '/healthz', '/ping'], (req, res) => {
   if (req.method !== 'GET' && req.method !== 'HEAD') {
     return res.status(405).json({ success: false, error: 'Method Not Allowed' });
   }
@@ -23,7 +23,10 @@ router.all(['/health/cron', '/cron'], (req, res) => {
   });
 });
 
-router.get('/health', (req, res) => {
+router.all('/health', (req, res) => {
+  if (req.method !== 'GET' && req.method !== 'HEAD') {
+    return res.status(405).json({ success: false, error: 'Method Not Allowed' });
+  }
   const activeProvider = llmAdapter.getActiveProvider();
   res.json({
     status: 'ok',
